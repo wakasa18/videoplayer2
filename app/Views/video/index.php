@@ -3,55 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Library</title>
+<title>Video Observatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:        #1B1917;
-    --surface:   #242220;
-    --surface-2: #2C2A27;
-    --hairline:  #3A3733;
-    --text:      #EDE7DD;
-    --text-dim:  #A39C90;
-    --amber:     #E8A33D;
-    --teal:      #3FA9A4;
-    --red:       #D6584A;
+    --bg:        #05070f;
+    --surface:   #0d1224;
+    --surface-2: #131a30;
+    --hairline:  #232d4d;
+    --text:      #E9EDFB;
+    --text-dim:  #8390B5;
+    --cyan:      #5FD9E8;
+    --violet:    #9B7DEE;
+    --gold:      #F2C36B;
+    --red:       #E5636B;
     --radius:    10px;
   }
   * { box-sizing: border-box; }
   body{
     margin:0;
     background:
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 4px),
+      radial-gradient(ellipse 900px 520px at 10% -12%, rgba(155,125,238,.18), transparent 60%),
+      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%),
+      radial-gradient(1px 1px at 10% 18%, rgba(233,237,251,.9) 1px, transparent 0),
+      radial-gradient(1px 1px at 34% 62%, rgba(233,237,251,.55) 1px, transparent 0),
+      radial-gradient(1.5px 1.5px at 58% 24%, rgba(233,237,251,.8) 1px, transparent 0),
+      radial-gradient(1px 1px at 78% 78%, rgba(233,237,251,.5) 1px, transparent 0),
+      radial-gradient(1px 1px at 92% 40%, rgba(233,237,251,.7) 1px, transparent 0),
+      radial-gradient(1.5px 1.5px at 15% 90%, rgba(233,237,251,.6) 1px, transparent 0),
+      radial-gradient(1px 1px at 46% 8%, rgba(233,237,251,.65) 1px, transparent 0),
       var(--bg);
+    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
+    background-size: auto, auto, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, auto;
     color:var(--text);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     min-height:100vh;
   }
   .wrap{ max-width:1080px; margin:0 auto; padding:36px 24px 80px; }
 
-  /* -- header / sprocket rule -- */
+  /* -- header / star rule -- */
   header{ margin-bottom:28px; }
   .eyebrow{
     font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
     font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--amber); margin:0 0 6px;
+    color:var(--gold); margin:0 0 8px;
   }
-  h1{ margin:0 0 14px; font-size:32px; font-weight:700; letter-spacing:-.01em; }
-  .sprockets{
-    height:14px;
-    background-image: radial-gradient(circle, var(--hairline) 2.5px, transparent 2.6px);
-    background-size: 22px 14px;
-    background-repeat: repeat-x;
-    background-position: left center;
+  h1{
+    margin:0 0 16px; font-size:40px; font-weight:600; letter-spacing:.01em;
+    font-family:'Cormorant Garamond', Georgia, serif; font-style:italic;
+    color:var(--text); text-shadow: 0 0 24px rgba(155,125,238,.35);
+  }
+  .starline{
+    height:14px; opacity:.9;
     border-top:1px solid var(--hairline);
     border-bottom:1px solid var(--hairline);
-    opacity:.7;
+    background-repeat: repeat-x; background-position: left center;
+    background-image:
+      radial-gradient(1px 1px at 6% 50%, rgba(233,237,251,.55) 1px, transparent 0),
+      radial-gradient(1px 1px at 18% 50%, rgba(233,237,251,.35) 1px, transparent 0),
+      radial-gradient(1.5px 1.5px at 33% 50%, var(--gold) 1px, transparent 0),
+      radial-gradient(1px 1px at 47% 50%, rgba(233,237,251,.4) 1px, transparent 0),
+      radial-gradient(1px 1px at 61% 50%, rgba(233,237,251,.3) 1px, transparent 0),
+      radial-gradient(1.5px 1.5px at 76% 50%, var(--cyan) 1px, transparent 0),
+      radial-gradient(1px 1px at 89% 50%, rgba(233,237,251,.45) 1px, transparent 0);
+    background-size: 240px 14px;
   }
 
   /* -- flash messages -- */
   .flash{ margin:20px 0; padding:12px 16px; border-radius:var(--radius); font-size:14px; }
-  .flash.success{ background:rgba(63,169,164,.12); border:1px solid var(--teal); color:#BFEAE7; }
-  .flash.error{ background:rgba(214,88,74,.12); border:1px solid var(--red); color:#F3C6C0; }
+  .flash.success{ background:rgba(95,217,232,.10); border:1px solid var(--cyan); color:#CFF3F8; }
+  .flash.error{ background:rgba(229,99,107,.12); border:1px solid var(--red); color:#F7CDD0; }
   .flash ul{ margin:4px 0 0; padding-left:18px; }
 
   /* -- layout -- */
@@ -63,21 +86,31 @@
     border:1px solid var(--hairline);
     border-radius:var(--radius);
     padding:20px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
   }
   .panel h2{
-    margin:0 0 14px; font-size:13px; text-transform:uppercase; letter-spacing:.1em;
-    color:var(--text-dim); font-weight:600;
+    margin:0 0 14px; font-size:12px; text-transform:uppercase; letter-spacing:.14em;
+    color:var(--text-dim); font-weight:600; font-family:'JetBrains Mono', Menlo, monospace;
   }
 
-  /* -- player -- */
+  /* -- player, framed like a viewfinder -- */
+  .scope-frame{ position:relative; }
+  .corner{ position:absolute; width:16px; height:16px; z-index:2; pointer-events:none; opacity:.9; }
+  .corner.tl{ top:-6px;    left:-6px;  border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .corner.tr{ top:-6px;    right:-6px; border-top:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+  .corner.bl{ bottom:-6px; left:-6px;  border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .corner.br{ bottom:-6px; right:-6px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
   .player-frame{
     background:#000; border-radius:8px; overflow:hidden; aspect-ratio:16/9;
     display:flex; align-items:center; justify-content:center; border:1px solid var(--hairline);
   }
   .player-frame video{ width:100%; height:100%; display:block; background:#000; }
   .player-empty{ color:var(--text-dim); font-size:14px; text-align:center; padding:20px; }
-  .now-playing{ margin-top:12px; font-size:14px; color:var(--text-dim); }
-  .now-playing strong{ color:var(--text); font-weight:600; }
+  .now-playing{
+    margin-top:14px; font-size:13px; color:var(--text-dim);
+    font-family:'JetBrains Mono', Menlo, monospace; letter-spacing:.02em;
+  }
+  .now-playing strong{ color:var(--cyan); font-weight:500; }
 
   /* -- upload form -- */
   label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; }
@@ -88,14 +121,14 @@
     resize:vertical;
   }
   input[type="text"]:focus, textarea:focus, input[type="file"]:focus{
-    outline:2px solid var(--amber); outline-offset:1px;
+    outline:2px solid var(--cyan); outline-offset:1px;
   }
   .dropzone{
     margin-top:6px; border:1.5px dashed var(--hairline); border-radius:8px;
     padding:22px 14px; text-align:center; background:var(--surface-2);
     transition: border-color .15s ease, background .15s ease;
   }
-  .dropzone.drag{ border-color:var(--amber); background:rgba(232,163,61,.08); }
+  .dropzone.drag{ border-color:var(--cyan); background:rgba(95,217,232,.08); }
   .dropzone p{ margin:0 0 8px; font-size:13px; color:var(--text-dim); }
   .dropzone input[type="file"]{ color:var(--text-dim); font-size:13px; width:100%; }
   .file-hint{ font-size:11px; color:var(--text-dim); margin-top:6px; }
@@ -104,8 +137,8 @@
     font-family:inherit; cursor:pointer; border:none; border-radius:6px;
     font-size:14px; font-weight:600; padding:11px 18px;
   }
-  .btn-primary{ background:var(--amber); color:#221A0C; width:100%; margin-top:18px; }
-  .btn-primary:hover{ background:#f0af52; }
+  .btn-primary{ background:var(--gold); color:#1B1430; width:100%; margin-top:18px; letter-spacing:.01em; }
+  .btn-primary:hover{ background:#f6d182; }
 
   /* -- video list -- */
   .video-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
@@ -114,11 +147,11 @@
     background:var(--surface-2); border:1px solid var(--hairline); border-radius:8px;
     padding:10px 12px; cursor:pointer; transition:border-color .12s ease, background .12s ease;
   }
-  .video-item:hover{ border-color:var(--amber); }
-  .video-item.active{ border-color:var(--amber); background:rgba(232,163,61,.08); }
+  .video-item:hover{ border-color:var(--cyan); }
+  .video-item.active{ border-color:var(--cyan); background:rgba(95,217,232,.08); }
   .video-thumb{
     width:56px; height:34px; border-radius:4px; background:#000; flex:none;
-    display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:16px;
+    display:flex; align-items:center; justify-content:center; color:var(--cyan); font-size:16px;
     border:1px solid var(--hairline);
   }
   .video-meta{ flex:1; min-width:0; }
@@ -137,9 +170,9 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">Local library / 001</p>
-    <h1>Video Library</h1>
-    <div class="sprockets"></div>
+    <p class="eyebrow">Transmission Log · Sector 07</p>
+    <h1>Video Observatory</h1>
+    <div class="starline"></div>
   </header>
 
   <?php if (session()->getFlashdata('success')): ?>
@@ -165,18 +198,22 @@
 
     <!-- Player + list -->
     <div class="panel">
-      <h2>Now Playing</h2>
-      <div class="player-frame" id="playerFrame">
-        <video id="player" controls preload="metadata"></video>
-        <div class="player-empty" id="playerEmpty">Select a video from the list to start playback.</div>
+      <h2>Live Feed</h2>
+      <div class="scope-frame">
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <div class="player-frame" id="playerFrame">
+          <video id="player" controls preload="metadata"></video>
+          <div class="player-empty" id="playerEmpty">Select a recording from the log to begin playback.</div>
+        </div>
       </div>
       <div class="now-playing" id="nowPlaying" style="display:none;">
-        Playing: <strong id="nowPlayingTitle"></strong>
+        Now viewing: <strong id="nowPlayingTitle"></strong>
       </div>
 
-      <h2 style="margin-top:26px;">Library (<?= count($videos) ?>)</h2>
+      <h2 style="margin-top:26px;">Star Catalog (<?= count($videos) ?>)</h2>
       <?php if (empty($videos)): ?>
-        <div class="empty-state">No videos yet. Upload one to get started.</div>
+        <div class="empty-state">No recordings logged yet. Add one to begin your catalog.</div>
       <?php else: ?>
         <ul class="video-list" id="videoList">
           <?php foreach ($videos as $video): ?>
@@ -205,7 +242,7 @@
 
     <!-- Upload form -->
     <div class="panel">
-      <h2>Add Video</h2>
+      <h2>Log New Recording</h2>
       <form id="uploadForm">
         <label for="title">Title</label>
         <input type="text" id="title" name="title" required maxlength="255">
@@ -224,7 +261,7 @@
           <div id="uploadProgressBar" style="height:100%; width:0%; background:var(--teal); transition:width .15s;"></div>
         </div>
 
-        <button type="submit" class="btn-primary" id="uploadSubmitBtn">Upload video</button>
+        <button type="submit" class="btn-primary" id="uploadSubmitBtn">Add to catalog</button>
       </form>
     </div>
 
