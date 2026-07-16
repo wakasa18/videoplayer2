@@ -4,6 +4,7 @@ namespace Config;
 
 use CodeIgniter\Config\BaseConfig;
 use CodeIgniter\Session\Handlers\BaseHandler;
+use CodeIgniter\Session\Handlers\Database\PostgreHandler;
 use CodeIgniter\Session\Handlers\FileHandler;
 
 class Session extends BaseConfig
@@ -125,4 +126,20 @@ class Session extends BaseConfig
      * seconds.
      */
     public int $lockMaxRetries = 300;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Vercel's filesystem is read-only at request time (only /tmp is
+        // writable, and it doesn't persist), so the default file-based
+        // session driver fatals there. Vercel sets VERCEL=1 automatically
+        // on every deployment — use that to switch to a Postgres-backed
+        // session table instead. Local/UniServer dev keeps using files.
+        if (getenv('VERCEL') !== false) {
+            $this->driver   = PostgreHandler::class;
+            $this->savePath = 'ci_sessions';
+            $this->DBGroup  = 'default';
+        }
+    }
 }
