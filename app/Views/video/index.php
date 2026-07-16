@@ -193,7 +193,7 @@
                 </div>
               </div>
               <form action="<?= base_url('videos/' . $video['id'] . '/delete') ?>" method="post"
-                    onsubmit="return confirm('Delete this video? This cannot be undone.');">
+                    onsubmit="return confirm('Delete this video? This cannot be undone.');" onclick="event.stopPropagation();">
                 <?= csrf_field() ?>
                 <button type="submit" class="video-del" title="Delete">&times;</button>
               </form>
