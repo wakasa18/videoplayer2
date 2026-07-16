@@ -230,6 +230,12 @@ class Database extends Config
         }
         if ($driver !== false) {
             $this->default['DBDriver'] = $driver;
+
+            // 'utf8mb4' is a MySQL-specific charset name; Postgres calls the
+            // equivalent 'utf8' and rejects 'utf8mb4' outright.
+            if ($driver === 'Postgre') {
+                $this->default['charset'] = 'utf8';
+            }
         }
         if ($port !== false) {
             $this->default['port'] = (int) $port;
