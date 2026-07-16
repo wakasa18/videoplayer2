@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Libraries\SupabaseStorage;
 use App\Models\VideoModel;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
 class Video extends BaseController
@@ -12,6 +13,8 @@ class Video extends BaseController
     protected $helpers = ['url', 'form'];
 
     protected VideoModel $videoModel;
+
+    protected array $allowedExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'];
 
     public function __construct()
     {
@@ -31,67 +34,83 @@ class Video extends BaseController
     }
 
     /**
-     * Handle the upload form submission.
+     * Step 1 of the upload flow: the browser asks us for a place to upload
+     * to. We generate a random, collision-safe filename and hand back a
+     * short-lived Supabase signed upload URL. The actual file bytes never
+     * touch this backend — the browser PUTs them straight to Supabase next.
+     * This is what keeps uploads working on Vercel (4.5MB request body cap)
+     * for files far larger than that.
      */
-    public function store(): RedirectResponse
+    public function signUpload(): ResponseInterface
     {
-        $validationRules = [
-            'title' => 'required|min_length[1]|max_length[255]',
-            'video' => [
-                'label' => 'Video file',
-                'rules' => [
-                    'uploaded[video]',
-                    'max_size[video,204800]',      // 200 MB (in KB)
-                    'ext_in[video,mp4,webm,ogg,mov,avi,mkv]',
-                    'mime_in[video,video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/x-matroska,application/octet-stream]',
-                ],
-            ],
-        ];
+        $originalName = (string) $this->request->getJsonVar('filename');
+        $mimeType     = (string) $this->request->getJsonVar('mimetype');
 
-        if (! $this->validate($validationRules)) {
-            return redirect()->to('/videos')
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
+        if ($originalName === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Missing filename.']);
         }
 
-        $file = $this->request->getFile('video');
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
-        if (! $file->isValid() || $file->hasMoved()) {
-            return redirect()->to('/videos')
-                ->with('error', 'Something went wrong with the upload. Please try again.');
+        if (! in_array($extension, $this->allowedExtensions, true)) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Unsupported file type.']);
         }
 
-        $originalName = $file->getClientName();
-        $newName      = $file->getRandomName(); // collision-safe generated name
-        $mimeType     = $file->getClientMimeType();
-        $fileSize     = $file->getSize();
+        $storedName = bin2hex(random_bytes(16)) . '.' . $extension;
 
-        // Upload straight from the temp path Vercel already wrote it to
-        // (its /tmp scratch space) into Supabase Storage. We never write
-        // to the app's own disk since Vercel's filesystem is read-only
-        // at request time.
         try {
-            $storage   = new SupabaseStorage();
-            $publicUrl = $storage->upload($file->getTempName(), $newName, $mimeType);
+            $storage = new SupabaseStorage();
+            $signed  = $storage->createSignedUploadUrl($storedName);
         } catch (Throwable $e) {
-            log_message('error', 'Supabase upload failed: {msg}', ['msg' => $e->getMessage()]);
+            log_message('error', 'Supabase signed upload URL failed: {msg}', ['msg' => $e->getMessage()]);
 
-            return redirect()->to('/videos')
-                ->with('error', 'Upload to storage failed. Please try again.');
+            return $this->response->setStatusCode(502)->setJSON(['error' => 'Could not prepare the upload. Please try again.']);
+        }
+
+        return $this->response->setJSON([
+            'uploadUrl'    => $signed['uploadUrl'],
+            'publicUrl'    => $signed['publicUrl'],
+            'storedName'   => $storedName,
+            'originalName' => $originalName,
+            'mimeType'     => $mimeType,
+        ]);
+    }
+
+    /**
+     * Step 2 of the upload flow: after the browser has successfully PUT the
+     * file directly to Supabase, it sends us just the small JSON metadata
+     * to record in the database. No file bytes pass through here.
+     */
+    public function store(): ResponseInterface
+    {
+        $title       = trim((string) $this->request->getJsonVar('title'));
+        $description = trim((string) $this->request->getJsonVar('description'));
+        $storedName  = (string) $this->request->getJsonVar('storedName');
+        $originalName = (string) $this->request->getJsonVar('originalName');
+        $mimeType    = (string) $this->request->getJsonVar('mimeType');
+        $publicUrl   = (string) $this->request->getJsonVar('publicUrl');
+        $fileSize    = (int) $this->request->getJsonVar('fileSize');
+
+        if ($title === '' || $storedName === '' || $publicUrl === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Missing required fields.']);
+        }
+
+        if (mb_strlen($title) > 255) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Title is too long.']);
         }
 
         $this->videoModel->insert([
-            'title'              => $this->request->getPost('title'),
-            'description'        => $this->request->getPost('description'),
-            'filename'           => $newName,
+            'title'              => $title,
+            'description'        => $description,
+            'filename'           => $storedName,
             'original_filename'  => $originalName,
             'file_path'          => $publicUrl,
-            'mime_type'          => $mimeType,
+            'mime_type'          => $mimeType !== '' ? $mimeType : 'application/octet-stream',
             'file_size'          => $fileSize,
             'status'             => 'active',
         ]);
 
-        return redirect()->to('/videos')->with('success', 'Video uploaded successfully.');
+        return $this->response->setJSON(['success' => true]);
     }
 
     /**

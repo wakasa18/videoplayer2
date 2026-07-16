@@ -206,22 +206,25 @@
     <!-- Upload form -->
     <div class="panel">
       <h2>Add Video</h2>
-      <form action="<?= base_url('videos') ?>" method="post" enctype="multipart/form-data">
-        <?= csrf_field() ?>
-
+      <form id="uploadForm">
         <label for="title">Title</label>
-        <input type="text" id="title" name="title" value="<?= old('title') ?>" required maxlength="255">
+        <input type="text" id="title" name="title" required maxlength="255">
 
         <label for="description">Description (optional)</label>
-        <textarea id="description" name="description" rows="3"><?= old('description') ?></textarea>
+        <textarea id="description" name="description" rows="3"></textarea>
 
         <label for="video">Video file</label>
         <div class="dropzone" id="dropzone">
-          <p>MP4, WebM, OGG, MOV, AVI, or MKV &middot; up to 200MB</p>
+          <p>MP4, WebM, OGG, MOV, AVI, or MKV</p>
           <input type="file" id="video" name="video" accept="video/*" required>
         </div>
 
-        <button type="submit" class="btn-primary">Upload video</button>
+        <div id="uploadStatus" style="display:none; margin: 10px 0; font-size: 14px;"></div>
+        <div id="uploadProgressWrap" style="display:none; height:6px; background:var(--surface-2); border-radius:4px; overflow:hidden; margin: 10px 0;">
+          <div id="uploadProgressBar" style="height:100%; width:0%; background:var(--teal); transition:width .15s;"></div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="uploadSubmitBtn">Upload video</button>
       </form>
     </div>
 
@@ -264,6 +267,108 @@
   dropzone.addEventListener('drop', e => {
     if (e.dataTransfer.files.length) {
       fileInput.files = e.dataTransfer.files;
+    }
+  });
+
+  // --- Direct-to-storage upload flow ---
+  // The file never touches our own backend/server — we ask it for a
+  // signed upload URL, PUT the file straight to storage from the browser,
+  // then send back just a small JSON metadata record to save. This avoids
+  // any server request-body size limits entirely.
+  const uploadForm     = document.getElementById('uploadForm');
+  const uploadStatus   = document.getElementById('uploadStatus');
+  const progressWrap   = document.getElementById('uploadProgressWrap');
+  const progressBar    = document.getElementById('uploadProgressBar');
+  const submitBtn      = document.getElementById('uploadSubmitBtn');
+
+  function setStatus(message, isError) {
+    uploadStatus.style.display = 'block';
+    uploadStatus.textContent = message;
+    uploadStatus.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+  }
+
+  function putWithProgress(url, file) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          progressBar.style.width = pct + '%';
+          setStatus('Uploading… ' + pct + '%', false);
+        }
+      });
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error('Upload to storage failed (status ' + xhr.status + ').'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload to storage failed. Check your connection.'));
+      xhr.send(file);
+    });
+  }
+
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('title').value.trim();
+    const description = document.getElementById('description').value.trim();
+    const file = fileInput.files[0];
+
+    if (!title || !file) {
+      setStatus('Please provide a title and choose a file.', true);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
+    setStatus('Preparing upload…', false);
+
+    try {
+      // Step 1: ask our backend for a signed upload URL
+      const signRes = await fetch('<?= base_url('videos/sign-upload') ?>', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, mimetype: file.type }),
+      });
+      const signData = await signRes.json();
+      if (!signRes.ok) {
+        throw new Error(signData.error || 'Could not prepare the upload.');
+      }
+
+      // Step 2: upload the file bytes straight to storage from the browser
+      setStatus('Uploading… 0%', false);
+      await putWithProgress(signData.uploadUrl, file);
+
+      // Step 3: save just the metadata
+      setStatus('Saving…', false);
+      const saveRes = await fetch('<?= base_url('videos') ?>', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          description: description,
+          storedName: signData.storedName,
+          originalName: signData.originalName,
+          mimeType: file.type,
+          publicUrl: signData.publicUrl,
+          fileSize: file.size,
+        }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) {
+        throw new Error(saveData.error || 'Could not save the video.');
+      }
+
+      setStatus('Done! Reloading…', false);
+      window.location.href = '<?= base_url('videos') ?>';
+    } catch (err) {
+      submitBtn.disabled = false;
+      setStatus(err.message || 'Something went wrong. Please try again.', true);
     }
   });
 </script>
