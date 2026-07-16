@@ -1,0 +1,10 @@
+.git
+tests
+changelogs
+writable/cache/*
+writable/logs/*
+writable/session/*
+writable/debugbar/*
+public/uploads/videos/*
+!public/uploads/videos/index.html
+!public/uploads/videos/.htaccess

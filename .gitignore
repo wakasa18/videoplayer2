@@ -1,0 +1,31 @@
+# Environment / secrets
+.env
+
+# Composer
+/vendor/
+
+# Local writable data (logs, cache, sessions shouldn't be versioned)
+writable/cache/*
+!writable/cache/index.html
+writable/logs/*
+!writable/logs/index.html
+writable/session/*
+!writable/session/index.html
+writable/debugbar/*
+!writable/debugbar/index.html
+writable/uploads/*
+!writable/uploads/index.html
+
+# Old local video uploads (now stored in Supabase, not in this repo)
+public/uploads/videos/*
+!public/uploads/videos/index.html
+!public/uploads/videos/.htaccess
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Vercel local cache
+.vercel

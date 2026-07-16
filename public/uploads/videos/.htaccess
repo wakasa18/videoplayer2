@@ -1,0 +1,7 @@
+# Serve files directly, but never execute anything in this folder as a script.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<FilesMatch "\.(php|phar|phtml|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>
