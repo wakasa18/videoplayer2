@@ -154,6 +154,7 @@ class SupabaseStorage
     {
         $headers = array_merge([
             'Authorization: Bearer ' . $this->serviceKey,
+            'apikey: ' . $this->serviceKey,
         ], $extraHeaders);
 
         $ch = curl_init($url);
