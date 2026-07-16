@@ -205,39 +205,37 @@ class Database extends Config
         // letters, digits, and underscores are allowed there), so the usual
         // CI4 convention of `database.default.hostname` in a dotted env var
         // silently never reaches this app on Vercel. Read plain underscore
-        // names instead when running there, and use them to override the
-        // defaults above. Local/UniServer dev is untouched — it keeps using
-        // the normal .env file via CI4's built-in dotted-key handling.
-        if (getenv('VERCEL') !== false) {
-            $hostname = getenv('DB_HOSTNAME');
-            $database = getenv('DB_DATABASE');
-            $username = getenv('DB_USERNAME');
-            $password = getenv('DB_PASSWORD');
-            $driver   = getenv('DB_DRIVER');
-            $port     = getenv('DB_PORT');
-            $sslmode  = getenv('DB_SSLMODE');
+        // names instead, and use them to override the defaults above.
+        // This checks the vars directly (not a platform flag) so it works
+        // wherever they happen to be set, and does nothing when they're not.
+        $hostname = getenv('DB_HOSTNAME');
+        $database = getenv('DB_DATABASE');
+        $username = getenv('DB_USERNAME');
+        $password = getenv('DB_PASSWORD');
+        $driver   = getenv('DB_DRIVER');
+        $port     = getenv('DB_PORT');
+        $sslmode  = getenv('DB_SSLMODE');
 
-            if ($hostname !== false) {
-                $this->default['hostname'] = $hostname;
-            }
-            if ($database !== false) {
-                $this->default['database'] = $database;
-            }
-            if ($username !== false) {
-                $this->default['username'] = $username;
-            }
-            if ($password !== false) {
-                $this->default['password'] = $password;
-            }
-            if ($driver !== false) {
-                $this->default['DBDriver'] = $driver;
-            }
-            if ($port !== false) {
-                $this->default['port'] = (int) $port;
-            }
-            if ($sslmode !== false) {
-                $this->default['sslmode'] = $sslmode;
-            }
+        if ($hostname !== false) {
+            $this->default['hostname'] = $hostname;
+        }
+        if ($database !== false) {
+            $this->default['database'] = $database;
+        }
+        if ($username !== false) {
+            $this->default['username'] = $username;
+        }
+        if ($password !== false) {
+            $this->default['password'] = $password;
+        }
+        if ($driver !== false) {
+            $this->default['DBDriver'] = $driver;
+        }
+        if ($port !== false) {
+            $this->default['port'] = (int) $port;
+        }
+        if ($sslmode !== false) {
+            $this->default['sslmode'] = $sslmode;
         }
     }
 }
