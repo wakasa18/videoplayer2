@@ -199,4 +199,25 @@ class App extends BaseConfig
      * @see http://www.w3.org/TR/CSP/
      */
     public bool $CSPEnabled = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // CI4 does NOT auto-detect a blank baseURL — leaving it '' just
+        // fails URL validation and crashes before the app can even render
+        // an error page. Build it from the actual incoming request instead,
+        // so it's always correct: whatever port UniServer happens to be
+        // using locally, or the real Vercel domain in production — without
+        // ever needing to hardcode either one.
+        if ($this->baseURL === '') {
+            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+
+            $isHttps = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || ($_SERVER['SERVER_PORT'] ?? null) === '443'
+                || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? null) === 'https';
+
+            $this->baseURL = ($isHttps ? 'https' : 'http') . '://' . $host . '/';
+        }
+    }
 }
