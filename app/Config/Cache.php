@@ -195,4 +195,19 @@ class Cache extends BaseConfig
      * @var list<int>
      */
     public array $cacheStatusCodes = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Same reasoning as app/Config/Session.php: Vercel's filesystem is
+        // read-only at request time, and unlike the logger, the file cache
+        // handler throws a hard exception (not a silent failure) when its
+        // directory isn't writable. Fall back to the no-op 'dummy' handler
+        // there — this app doesn't rely on cache() for correctness anyway.
+        if (getenv('VERCEL') !== false) {
+            $this->handler       = 'dummy';
+            $this->backupHandler = 'dummy';
+        }
+    }
 }
