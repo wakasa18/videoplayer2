@@ -33,6 +33,15 @@
   @keyframes progressShimmer{ to{ background-position:-200% 0; } }
   @keyframes twinkle{ 0%,100%{ opacity:.15; transform:scale(.7); } 50%{ opacity:1; transform:scale(1); } }
   @keyframes spinSlow{ to{ transform:rotate(360deg); } }
+  @keyframes nebulaDrift{
+    0%{   transform:translate3d(0,0,0) scale(1);        filter:hue-rotate(0deg); }
+    50%{  transform:translate3d(-2.5%, 2%, 0) scale(1.08); filter:hue-rotate(8deg); }
+    100%{ transform:translate3d(2.5%, -1.5%, 0) scale(1); filter:hue-rotate(-6deg); }
+  }
+  @keyframes starDrift{
+    from{ background-position: 0 0; }
+    to{   background-position: -480px -440px; }
+  }
 
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{
@@ -42,24 +51,38 @@
   }
   body{
     margin:0;
-    background:
+    background:var(--bg);
+    color:var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* -- animated nebula glow, drifts + breathes slowly, stays fixed while page scrolls -- */
+  body::before{
+    content:''; position:fixed; inset:-15%; z-index:-2; pointer-events:none;
+    background-repeat:no-repeat;
+    background-image:
       radial-gradient(ellipse 900px 520px at 10% -12%, rgba(155,125,238,.18), transparent 60%),
-      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%),
+      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%);
+    animation:nebulaDrift 46s ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  /* -- animated starfield texture, slowly pans for a drifting-through-space feel -- */
+  body::after{
+    content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-repeat:repeat;
+    background-image:
       radial-gradient(1px 1px at 10% 18%, rgba(233,237,251,.9) 1px, transparent 0),
       radial-gradient(1px 1px at 34% 62%, rgba(233,237,251,.55) 1px, transparent 0),
       radial-gradient(1.5px 1.5px at 58% 24%, rgba(233,237,251,.8) 1px, transparent 0),
       radial-gradient(1px 1px at 78% 78%, rgba(233,237,251,.5) 1px, transparent 0),
       radial-gradient(1px 1px at 92% 40%, rgba(233,237,251,.7) 1px, transparent 0),
       radial-gradient(1.5px 1.5px at 15% 90%, rgba(233,237,251,.6) 1px, transparent 0),
-      radial-gradient(1px 1px at 46% 8%, rgba(233,237,251,.65) 1px, transparent 0),
-      var(--bg);
-    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
-    background-size: auto, auto, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, auto;
-    color:var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    min-height:100vh;
-    position:relative;
-    overflow-x:hidden;
+      radial-gradient(1px 1px at 46% 8%, rgba(233,237,251,.65) 1px, transparent 0);
+    background-size:240px 220px;
+    animation:starDrift 160s linear infinite;
+    will-change:background-position;
   }
   .wrap{ max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative; z-index:1; }
 
