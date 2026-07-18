@@ -1,116 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Video Observatory</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<?= view('partials/theme_head') ?>
 <style>
-  :root{
-    --bg:        #05070f;
-    --surface:   #0d1224;
-    --surface-2: #131a30;
-    --hairline:  #232d4d;
-    --text:      #E9EDFB;
-    --text-dim:  #8390B5;
-    --cyan:      #5FD9E8;
-    --violet:    #9B7DEE;
-    --gold:      #F2C36B;
-    --red:       #E5636B;
-    --radius:    10px;
-  }
-  * { box-sizing: border-box; }
-  body{
-    margin:0;
-    background:
-      radial-gradient(ellipse 900px 520px at 10% -12%, rgba(155,125,238,.18), transparent 60%),
-      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%),
-      radial-gradient(1px 1px at 10% 18%, rgba(233,237,251,.9) 1px, transparent 0),
-      radial-gradient(1px 1px at 34% 62%, rgba(233,237,251,.55) 1px, transparent 0),
-      radial-gradient(1.5px 1.5px at 58% 24%, rgba(233,237,251,.8) 1px, transparent 0),
-      radial-gradient(1px 1px at 78% 78%, rgba(233,237,251,.5) 1px, transparent 0),
-      radial-gradient(1px 1px at 92% 40%, rgba(233,237,251,.7) 1px, transparent 0),
-      radial-gradient(1.5px 1.5px at 15% 90%, rgba(233,237,251,.6) 1px, transparent 0),
-      radial-gradient(1px 1px at 46% 8%, rgba(233,237,251,.65) 1px, transparent 0),
-      var(--bg);
-    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
-    background-size: auto, auto, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, 240px 220px, auto;
-    color:var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    min-height:100vh;
-  }
-  .wrap{ max-width:1080px; margin:0 auto; padding:36px 24px 80px; }
-
-  /* -- header / star rule -- */
-  header{ margin-bottom:28px; }
-  .eyebrow{
-    font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
-    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--gold); margin:0 0 8px;
-  }
-  h1{
-    margin:0 0 16px; font-size:40px; font-weight:600; letter-spacing:.01em;
-    font-family:'Cormorant Garamond', Georgia, serif; font-style:italic;
-    color:var(--text); text-shadow: 0 0 24px rgba(155,125,238,.35);
-  }
-  .starline{
-    height:14px; opacity:.9;
-    border-top:1px solid var(--hairline);
-    border-bottom:1px solid var(--hairline);
-    background-repeat: repeat-x; background-position: left center;
-    background-image:
-      radial-gradient(1px 1px at 6% 50%, rgba(233,237,251,.55) 1px, transparent 0),
-      radial-gradient(1px 1px at 18% 50%, rgba(233,237,251,.35) 1px, transparent 0),
-      radial-gradient(1.5px 1.5px at 33% 50%, var(--gold) 1px, transparent 0),
-      radial-gradient(1px 1px at 47% 50%, rgba(233,237,251,.4) 1px, transparent 0),
-      radial-gradient(1px 1px at 61% 50%, rgba(233,237,251,.3) 1px, transparent 0),
-      radial-gradient(1.5px 1.5px at 76% 50%, var(--cyan) 1px, transparent 0),
-      radial-gradient(1px 1px at 89% 50%, rgba(233,237,251,.45) 1px, transparent 0);
-    background-size: 240px 14px;
-  }
-
-  /* -- flash messages -- */
-  .flash{ margin:20px 0; padding:12px 16px; border-radius:var(--radius); font-size:14px; }
-  .flash.success{ background:rgba(95,217,232,.10); border:1px solid var(--cyan); color:#CFF3F8; }
-  .flash.error{ background:rgba(229,99,107,.12); border:1px solid var(--red); color:#F7CDD0; }
-  .flash ul{ margin:4px 0 0; padding-left:18px; }
-
   /* -- layout -- */
   .layout{ display:grid; grid-template-columns: 1.4fr 1fr; gap:24px; margin-top:28px; }
   @media (max-width: 860px){ .layout{ grid-template-columns: 1fr; } }
-
-  .panel{
-    background:var(--surface);
-    border:1px solid var(--hairline);
-    border-radius:var(--radius);
-    padding:20px;
-    box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
-  }
-  .panel h2{
-    margin:0 0 14px; font-size:12px; text-transform:uppercase; letter-spacing:.14em;
-    color:var(--text-dim); font-weight:600; font-family:'JetBrains Mono', Menlo, monospace;
-  }
+  .layout > .panel:nth-of-type(1){ animation-delay:.28s; }
+  .layout > .panel:nth-of-type(2){ animation-delay:.38s; }
 
   /* -- player, framed like a viewfinder -- */
-  .scope-frame{ position:relative; }
-  .corner{ position:absolute; width:16px; height:16px; z-index:2; pointer-events:none; opacity:.9; }
-  .corner.tl{ top:-6px;    left:-6px;  border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
-  .corner.tr{ top:-6px;    right:-6px; border-top:2px solid var(--cyan); border-right:2px solid var(--cyan); }
-  .corner.bl{ bottom:-6px; left:-6px;  border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); }
-  .corner.br{ bottom:-6px; right:-6px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
   .player-frame{
     background:#000; border-radius:8px; overflow:hidden; aspect-ratio:16/9;
     display:flex; align-items:center; justify-content:center; border:1px solid var(--hairline);
+    transition: box-shadow .3s ease, border-color .3s ease;
   }
+  .player-frame.is-playing{ border-color:rgba(95,217,232,.4); box-shadow:0 0 0 1px rgba(95,217,232,.15), 0 0 26px rgba(95,217,232,.18); }
   .player-frame video{ width:100%; height:100%; display:block; background:#000; }
   .player-empty{ color:var(--text-dim); font-size:14px; text-align:center; padding:20px; }
   .now-playing{
     margin-top:14px; font-size:13px; color:var(--text-dim);
     font-family:'JetBrains Mono', Menlo, monospace; letter-spacing:.02em;
   }
+  .now-playing::before{
+    content:''; display:inline-block; width:6px; height:6px; margin-right:7px;
+    border-radius:50%; background:var(--red); vertical-align:middle;
+    animation:liveDot 1.4s ease-in-out infinite;
+  }
   .now-playing strong{ color:var(--cyan); font-weight:500; }
+  .now-playing strong.updated{ animation:flashIn .3s ease; }
 
   /* -- upload form -- */
   label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; }
@@ -126,34 +45,40 @@
   .dropzone{
     margin-top:6px; border:1.5px dashed var(--hairline); border-radius:8px;
     padding:22px 14px; text-align:center; background:var(--surface-2);
-    transition: border-color .15s ease, background .15s ease;
+    transition: border-color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease;
   }
-  .dropzone.drag{ border-color:var(--cyan); background:rgba(95,217,232,.08); }
+  .dropzone.drag{ border-color:var(--cyan); background:rgba(95,217,232,.08); transform:scale(1.015); box-shadow:0 0 0 3px rgba(95,217,232,.12); }
   .dropzone p{ margin:0 0 8px; font-size:13px; color:var(--text-dim); }
   .dropzone input[type="file"]{ color:var(--text-dim); font-size:13px; width:100%; }
   .file-hint{ font-size:11px; color:var(--text-dim); margin-top:6px; }
-
-  button{
-    font-family:inherit; cursor:pointer; border:none; border-radius:6px;
-    font-size:14px; font-weight:600; padding:11px 18px;
-  }
-  .btn-primary{ background:var(--gold); color:#1B1430; width:100%; margin-top:18px; letter-spacing:.01em; }
-  .btn-primary:hover{ background:#f6d182; }
 
   /* -- video list -- */
   .video-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
   .video-item{
     display:flex; align-items:center; gap:12px;
     background:var(--surface-2); border:1px solid var(--hairline); border-radius:8px;
-    padding:10px 12px; cursor:pointer; transition:border-color .12s ease, background .12s ease;
+    padding:10px 12px; cursor:pointer;
+    transition:border-color .15s ease, background .15s ease, transform .15s ease;
+    opacity:0; animation:fadeInUp .4s ease forwards;
   }
-  .video-item:hover{ border-color:var(--cyan); }
+  .video-item:nth-child(1){ animation-delay:.05s; }
+  .video-item:nth-child(2){ animation-delay:.10s; }
+  .video-item:nth-child(3){ animation-delay:.15s; }
+  .video-item:nth-child(4){ animation-delay:.20s; }
+  .video-item:nth-child(5){ animation-delay:.25s; }
+  .video-item:nth-child(6){ animation-delay:.30s; }
+  .video-item:nth-child(7){ animation-delay:.35s; }
+  .video-item:nth-child(8){ animation-delay:.40s; }
+  .video-item:hover{ border-color:var(--cyan); transform:translateX(3px); }
   .video-item.active{ border-color:var(--cyan); background:rgba(95,217,232,.08); }
   .video-thumb{
     width:56px; height:34px; border-radius:4px; background:#000; flex:none;
     display:flex; align-items:center; justify-content:center; color:var(--cyan); font-size:16px;
     border:1px solid var(--hairline);
+    transition: transform .15s ease, color .15s ease;
   }
+  .video-item:hover .video-thumb{ transform:scale(1.08); }
+  .video-item.active .video-thumb{ animation:thumbPing 1.7s ease-out infinite; }
   .video-meta{ flex:1; min-width:0; }
   .video-title{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .video-sub{
@@ -161,13 +86,24 @@
   }
   .video-del{
     flex:none; background:transparent; color:var(--text-dim); font-size:12px; padding:6px 8px;
+    transition: color .15s ease, transform .15s ease;
   }
-  .video-del:hover{ color:var(--red); }
-  .empty-state{ color:var(--text-dim); font-size:14px; text-align:center; padding:24px 8px; }
+  .video-del:hover{ color:var(--red); transform:scale(1.15); }
+  .empty-state{ color:var(--text-dim); font-size:14px; text-align:center; padding:24px 8px; animation:fadeInUp .5s ease both; }
+
+  /* -- upload progress shimmer -- */
+  .progress-shimmer{
+    background-image:linear-gradient(90deg, var(--cyan), var(--violet), var(--cyan));
+    background-size:200% 100%;
+    animation:progressShimmer 1.2s linear infinite;
+  }
 </style>
 </head>
 <body>
+<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
+
+  <a href="<?= base_url('/') ?>" class="nav-back">&larr; Home</a>
 
   <header>
     <p class="eyebrow">Transmission Log · Sector 07</p>
@@ -256,9 +192,9 @@
           <input type="file" id="video" name="video" accept="video/*" required>
         </div>
 
-        <div id="uploadStatus" style="display:none; margin: 10px 0; font-size: 14px;"></div>
+        <div id="uploadStatus" style="display:none; margin: 10px 0; font-size: 14px; transition: opacity .2s ease;"></div>
         <div id="uploadProgressWrap" style="display:none; height:6px; background:var(--surface-2); border-radius:4px; overflow:hidden; margin: 10px 0;">
-          <div id="uploadProgressBar" style="height:100%; width:0%; background:var(--teal); transition:width .15s;"></div>
+          <div id="uploadProgressBar" class="progress-shimmer" style="height:100%; width:0%; transition:width .15s;"></div>
         </div>
 
         <button type="submit" class="btn-primary" id="uploadSubmitBtn">Add to catalog</button>
@@ -268,9 +204,12 @@
   </div>
 </div>
 
+<?= view('partials/theme_scripts') ?>
 <script>
   const player      = document.getElementById('player');
   const playerEmpty = document.getElementById('playerEmpty');
+  const scopeFrame  = document.querySelector('.scope-frame');
+  const playerFrame = document.getElementById('playerFrame');
   const nowPlaying      = document.getElementById('nowPlaying');
   const nowPlayingTitle = document.getElementById('nowPlayingTitle');
   const items = document.querySelectorAll('.video-item');
@@ -285,9 +224,18 @@
       playerEmpty.style.display = 'none';
       nowPlaying.style.display = 'block';
       nowPlayingTitle.textContent = item.dataset.title;
+      nowPlayingTitle.classList.remove('updated');
+      // restart the flash animation even if the same title is clicked again
+      void nowPlayingTitle.offsetWidth;
+      nowPlayingTitle.classList.add('updated');
       player.play().catch(() => { /* autoplay may be blocked, that's fine */ });
     });
   });
+
+  // pulse the viewfinder corners and glow the frame while a video is actually playing
+  player.addEventListener('play',  () => { scopeFrame.classList.add('is-playing');    playerFrame.classList.add('is-playing'); });
+  player.addEventListener('pause', () => { scopeFrame.classList.remove('is-playing'); playerFrame.classList.remove('is-playing'); });
+  player.addEventListener('ended', () => { scopeFrame.classList.remove('is-playing'); playerFrame.classList.remove('is-playing'); });
 
   // hide the <video> element until something is selected
   player.style.display = 'none';
@@ -320,8 +268,10 @@
 
   function setStatus(message, isError) {
     uploadStatus.style.display = 'block';
+    uploadStatus.style.opacity = '0';
     uploadStatus.textContent = message;
     uploadStatus.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+    requestAnimationFrame(() => { uploadStatus.style.opacity = '1'; });
   }
 
   function putWithProgress(url, file) {
