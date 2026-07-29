@@ -21,5 +21,7 @@ $routes->get('notes', 'Notes::index');
 // Assignments
 $routes->get('assignments', 'Assignments::index');
 $routes->post('assignments', 'Assignments::store');
+$routes->post('assignments/(:num)/update', 'Assignments::update/$1');
 $routes->post('assignments/(:num)/toggle', 'Assignments::toggle/$1');
 $routes->post('assignments/(:num)/delete', 'Assignments::destroy/$1');
+$routes->post('assignments/(:num)/restore', 'Assignments::restore/$1');

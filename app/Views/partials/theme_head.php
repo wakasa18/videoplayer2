@@ -219,12 +219,20 @@
   }
   input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1) brightness(1.4); cursor:pointer; }
 
-  /* -- small icon-only delete button, used in any list item -- */
+  /* -- small icon-only buttons, used in any list item -- */
   .icon-del{
     flex:none; background:transparent; color:var(--text-dim); font-size:12px; padding:6px 8px;
     transition: color .15s ease, transform .15s ease;
   }
   .icon-del:hover{ color:var(--red); transform:scale(1.15); }
+  .icon-edit{
+    flex:none; background:transparent; color:var(--text-dim); font-size:12px; padding:6px 8px;
+    transition: color .15s ease, transform .15s ease;
+  }
+  .icon-edit:hover{ color:var(--cyan); transform:scale(1.15); }
+
+  /* -- utility -- */
+  .hidden{ display:none !important; }
 
   /* -- portal cards, used on the home hub and any sub-hub -- */
   .portal-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-top:28px; }
