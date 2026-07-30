@@ -21,6 +21,7 @@ class AssignmentModel extends Model
         'priority',
         'subject',
         'deleted_at',
+        'reminder_sent_at',
     ];
 
     protected $useTimestamps = true;
@@ -123,6 +124,52 @@ class AssignmentModel extends Model
         }
 
         return strtotime((string) $assignment['due_date']) < strtotime(date('Y-m-d'));
+    }
+
+    /**
+     * Pending assignments due within the next $daysAhead days (today
+     * through today+N, inclusive). Used to power the site-wide "due soon"
+     * banner shown on every page.
+     */
+    public function getUrgent(int $daysAhead = 2): array
+    {
+        $today = date('Y-m-d');
+        $limit = date('Y-m-d', strtotime("+{$daysAhead} days"));
+
+        return $this->where('deleted_at', null)
+            ->where('status', 'pending')
+            ->where('due_date >=', $today)
+            ->where('due_date <=', $limit)
+            ->orderBy('due_date', 'ASC')
+            ->findAll();
+    }
+
+    /**
+     * Same window as getUrgent(), but only assignments that haven't had a
+     * reminder email sent yet. Used by the daily cron so each assignment
+     * only ever triggers one email.
+     */
+    public function getUrgentUnnotified(int $daysAhead = 2): array
+    {
+        $today = date('Y-m-d');
+        $limit = date('Y-m-d', strtotime("+{$daysAhead} days"));
+
+        return $this->where('deleted_at', null)
+            ->where('status', 'pending')
+            ->where('reminder_sent_at', null)
+            ->where('due_date >=', $today)
+            ->where('due_date <=', $limit)
+            ->orderBy('due_date', 'ASC')
+            ->findAll();
+    }
+
+    /**
+     * Mark that a reminder email has gone out for this assignment, so the
+     * cron doesn't send it again tomorrow.
+     */
+    public function markReminderSent(int $id): bool
+    {
+        return $this->update($id, ['reminder_sent_at' => date('Y-m-d H:i:s')]);
     }
 
     /**

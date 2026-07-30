@@ -88,6 +88,8 @@
 <div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
+  <?= view('partials/deadline_banner') ?>
+
   <a href="<?= base_url('/') ?>" class="nav-back">&larr; Home</a>
 
   <header>

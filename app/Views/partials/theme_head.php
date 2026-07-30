@@ -234,6 +234,23 @@
   /* -- utility -- */
   .hidden{ display:none !important; }
 
+  /* -- site-wide deadline banner -- */
+  .deadline-banner{
+    display:flex; align-items:center; gap:8px;
+    background:rgba(229,99,107,.10); border:1px solid rgba(229,99,107,.35);
+    color:#F7CDD0; text-decoration:none;
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:12px; letter-spacing:.03em;
+    padding:9px 14px; border-radius:8px; margin-bottom:18px;
+    opacity:0; animation:fadeInUp .5s ease forwards;
+    transition: border-color .15s ease, background .15s ease, transform .15s ease;
+  }
+  .deadline-banner:hover{ background:rgba(229,99,107,.16); transform:translateY(-1px); }
+  .deadline-banner-dot{
+    width:6px; height:6px; border-radius:50%; background:var(--red); flex:none;
+    animation:liveDot 1.2s ease-in-out infinite;
+  }
+  .deadline-banner-arrow{ margin-left:auto; }
+
   /* -- portal cards, used on the home hub and any sub-hub -- */
   .portal-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-top:28px; }
   .portal-grid.cols-2{ grid-template-columns:repeat(2, 1fr); }

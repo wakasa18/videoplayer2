@@ -113,6 +113,8 @@
 <div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
+  <?= view('partials/deadline_banner') ?>
+
   <a href="<?= base_url('others') ?>" class="nav-back">&larr; Others</a>
 
   <header>

@@ -15,6 +15,8 @@
 <div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
+  <?= view('partials/deadline_banner') ?>
+
   <header class="home-header">
     <p class="eyebrow">Personal Archive · Root Access</p>
     <h1>Damon's Archive</h1>

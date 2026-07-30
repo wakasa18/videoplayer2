@@ -97,13 +97,21 @@ class Assignments extends BaseController
             return redirect()->to('/assignments')->with('error', 'That title is too long.');
         }
 
-        $this->assignmentModel->update($id, [
+        $updateData = [
             'title'       => $title,
             'description' => $description !== '' ? $description : null,
             'due_date'    => $dueDate !== '' ? $dueDate : null,
             'subject'     => $subject !== '' ? $subject : null,
             'priority'    => $priority,
-        ]);
+        ];
+
+        // If the due date changed, this assignment should be eligible for a
+        // fresh reminder rather than staying silenced by an old one.
+        if ($updateData['due_date'] !== $assignment['due_date']) {
+            $updateData['reminder_sent_at'] = null;
+        }
+
+        $this->assignmentModel->update($id, $updateData);
 
         return redirect()->to('/assignments')->with('success', 'Assignment updated.');
     }

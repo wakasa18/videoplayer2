@@ -24,6 +24,8 @@
 <div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
+  <?= view('partials/deadline_banner') ?>
+
   <a href="<?= esc($backUrl, 'attr') ?>" class="nav-back">&larr; <?= esc($backLabel) ?></a>
 
   <header>
