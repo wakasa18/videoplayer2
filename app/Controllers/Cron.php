@@ -12,9 +12,10 @@ class Cron extends BaseController
 
     /**
      * Hit on a schedule (see vercel.json "crons"). Emails a reminder for
-     * every pending assignment due within the next 2 days that hasn't
-     * already had a reminder sent, then marks each one as notified so it
-     * never sends twice.
+     * every pending assignment that's due within the next 2 days or
+     * already overdue, as long as it hasn't already been emailed today —
+     * so it re-sends daily for as long as it stays urgent, stopping only
+     * once it's marked done, its due date moves out, or it's deleted.
      *
      * Protected by a shared secret so random visitors can't trigger it —
      * Vercel Cron sends `Authorization: Bearer $CRON_SECRET` automatically
@@ -33,7 +34,7 @@ class Cron extends BaseController
         }
 
         $model  = new AssignmentModel();
-        $urgent = $model->getUrgentUnnotified(2);
+        $urgent = $model->getDueSoonForReminder(2);
 
         $sent  = [];
         $failed = [];
@@ -70,7 +71,7 @@ class Cron extends BaseController
         }
 
         $model  = new AssignmentModel();
-        $urgent = $model->getUrgentUnnotified(2);
+        $urgent = $model->getDueSoonForReminder(2);
 
         $sent   = [];
         $failed = [];

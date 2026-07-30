@@ -127,45 +127,48 @@ class AssignmentModel extends Model
     }
 
     /**
-     * Pending assignments due within the next $daysAhead days (today
-     * through today+N, inclusive). Used to power the site-wide "due soon"
-     * banner shown on every page.
+     * Pending assignments due within the next $daysAhead days, or already
+     * overdue. Used to power the site-wide "due soon" banner shown on
+     * every page.
      */
     public function getUrgent(int $daysAhead = 2): array
     {
-        $today = date('Y-m-d');
         $limit = date('Y-m-d', strtotime("+{$daysAhead} days"));
 
         return $this->where('deleted_at', null)
             ->where('status', 'pending')
-            ->where('due_date >=', $today)
             ->where('due_date <=', $limit)
             ->orderBy('due_date', 'ASC')
             ->findAll();
     }
 
     /**
-     * Same window as getUrgent(), but only assignments that haven't had a
-     * reminder email sent yet. Used by the daily cron so each assignment
-     * only ever triggers one email.
+     * Pending assignments that are due soon (within $daysAhead) OR already
+     * overdue, and haven't already been emailed today. Re-includes an
+     * assignment on each new day it's still urgent — so it nags daily
+     * until you mark it done, push the due date out, or delete it —
+     * instead of emailing once and going silent.
      */
-    public function getUrgentUnnotified(int $daysAhead = 2): array
+    public function getDueSoonForReminder(int $daysAhead = 2): array
     {
-        $today = date('Y-m-d');
-        $limit = date('Y-m-d', strtotime("+{$daysAhead} days"));
+        $limit      = date('Y-m-d', strtotime("+{$daysAhead} days"));
+        $startOfDay = date('Y-m-d 00:00:00');
 
         return $this->where('deleted_at', null)
             ->where('status', 'pending')
-            ->where('reminder_sent_at', null)
-            ->where('due_date >=', $today)
             ->where('due_date <=', $limit)
+            ->groupStart()
+                ->where('reminder_sent_at', null)
+                ->orWhere('reminder_sent_at <', $startOfDay)
+            ->groupEnd()
             ->orderBy('due_date', 'ASC')
             ->findAll();
     }
 
     /**
-     * Mark that a reminder email has gone out for this assignment, so the
-     * cron doesn't send it again tomorrow.
+     * Mark that a reminder email went out today for this assignment. Since
+     * this only guards against re-sending on the *same* day, it'll be
+     * eligible again automatically once tomorrow starts.
      */
     public function markReminderSent(int $id): bool
     {
