@@ -23,14 +23,8 @@ class Cron extends BaseController
      */
     public function checkDeadlines(): ResponseInterface
     {
-        $expected = getenv('CRON_SECRET');
-
-        if ($expected !== false && $expected !== '') {
-            $given = str_replace('Bearer ', '', (string) $this->request->getHeaderLine('Authorization'));
-
-            if (! hash_equals($expected, $given)) {
-                return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
-            }
+        if (! $this->cronSecretIsValid()) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
         }
 
         $model  = new AssignmentModel();
@@ -63,10 +57,7 @@ class Cron extends BaseController
      */
     public function test(): ResponseInterface
     {
-        $expected = getenv('CRON_SECRET');
-        $given    = (string) $this->request->getGet('secret');
-
-        if ($expected !== false && $expected !== '' && ! hash_equals($expected, $given)) {
+        if (! $this->cronSecretIsValid()) {
             return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized. Add ?secret=your_cron_secret to the URL.']);
         }
 
@@ -91,6 +82,43 @@ class Cron extends BaseController
             'failed'  => $failed,
             'note'    => 'This also marks any sent assignments as notified, same as the real cron.',
         ]);
+    }
+
+    /**
+     * True if the request is allowed to trigger a deadline check.
+     *
+     * Checks, in order: the Authorization header the normal way, two
+     * fallback $_SERVER keys some PHP runtimes use instead when a header
+     * gets stripped or renamed along the way, and finally a `?secret=`
+     * query param so this still works from a plain browser visit. If
+     * CRON_SECRET isn't set at all, every request is allowed through —
+     * handy while testing locally before you've configured it.
+     */
+    private function cronSecretIsValid(): bool
+    {
+        $expected = getenv('CRON_SECRET');
+
+        if ($expected === false || $expected === '') {
+            return true;
+        }
+
+        $given = $this->request->getHeaderLine('Authorization');
+
+        if ($given === '' && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $given = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+
+        if ($given === '' && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+            $given = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        }
+
+        $given = trim(str_replace('Bearer', '', $given));
+
+        if ($given === '') {
+            $given = (string) $this->request->getGet('secret');
+        }
+
+        return hash_equals($expected, $given);
     }
 
     private function sendReminderEmail(array $assignment): bool
