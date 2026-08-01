@@ -56,14 +56,56 @@
   }
   /* -- animated nebula glow, drifts + breathes slowly, stays fixed while page scrolls -- */
   body::before{
-    content:''; position:fixed; inset:-15%; z-index:-2; pointer-events:none;
+    content:''; position:fixed; inset:-15%; z-index:-3; pointer-events:none;
     background-repeat:no-repeat;
     background-image:
       radial-gradient(ellipse 900px 520px at 10% -12%, rgba(155,125,238,.18), transparent 60%),
-      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%);
+      radial-gradient(ellipse 760px 520px at 96% 6%, rgba(95,217,232,.11), transparent 55%),
+      radial-gradient(ellipse 620px 460px at 78% 88%, rgba(229,99,107,.08), transparent 58%),
+      radial-gradient(ellipse 700px 420px at 4% 82%, rgba(95,217,232,.07), transparent 60%);
     animation:nebulaDrift 46s ease-in-out infinite alternate;
     will-change:transform;
   }
+  /* -- soft diagonal Milky Way glow band -- */
+  .milky-way{
+    position:fixed; z-index:-2; pointer-events:none;
+    top:50%; left:50%; width:200vmax; height:46vmax;
+    transform:translate(-50%,-50%) rotate(-28deg);
+    background:linear-gradient(
+      to bottom,
+      transparent,
+      rgba(200,210,255,.05) 38%,
+      rgba(225,220,255,.09) 48%,
+      rgba(200,210,255,.05) 58%,
+      transparent
+    );
+    animation:milkyWayDrift 90s ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  @keyframes milkyWayDrift{
+    0%{   transform:translate(-50%,-50%) rotate(-28deg) scale(1); }
+    100%{ transform:translate(-50%,-50%) rotate(-25deg) scale(1.06); }
+  }
+  /* -- distant galaxies: small, soft, mostly static smudges -- */
+  .galaxy{ position:fixed; z-index:-2; pointer-events:none; border-radius:50%; filter:blur(1px); }
+  .galaxy::after{ content:''; position:absolute; inset:0; border-radius:inherit; filter:blur(3px); }
+  .galaxy-1{
+    top:14%; left:82%; width:46px; height:18px;
+    background:radial-gradient(ellipse, rgba(220,200,255,.20), transparent 70%);
+    transform:rotate(-20deg); animation:galaxySpin 240s linear infinite;
+  }
+  .galaxy-2{
+    top:68%; left:8%; width:36px; height:14px;
+    background:radial-gradient(ellipse, rgba(180,225,235,.16), transparent 70%);
+    transform:rotate(35deg); animation:galaxySpin 300s linear infinite reverse;
+  }
+  .galaxy-3{
+    top:82%; left:70%; width:30px; height:12px;
+    background:radial-gradient(ellipse, rgba(240,200,210,.14), transparent 70%);
+    transform:rotate(-52deg); animation:galaxySpin 260s linear infinite;
+  }
+  @keyframes galaxySpin{ to{ transform:rotate(360deg); } }
+
   /* -- animated starfield texture, slowly pans for a drifting-through-space feel -- */
   body::after{
     content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
@@ -82,11 +124,25 @@
   }
   .wrap{ max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative; z-index:1; }
 
-  /* -- twinkling star overlay (generated in JS) -- */
+  /* -- twinkling star overlay (generated in JS): varied real star colors + sizes -- */
   .twinkle-layer{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
   .twinkle-star{
-    position:absolute; border-radius:50%; background:#fff;
+    position:absolute; border-radius:50%;
     animation-name:twinkle; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  }
+  .twinkle-star.bright{ box-shadow:0 0 4px 1px currentColor; color:inherit; }
+
+  /* -- shooting stars, generated in JS at random intervals -- */
+  .shooting-star{
+    position:fixed; z-index:0; pointer-events:none; height:2px; border-radius:2px;
+    background:linear-gradient(90deg, rgba(255,255,255,.95), rgba(255,255,255,0));
+    animation:shootingStar 1.1s linear forwards;
+    will-change:transform, opacity;
+  }
+  @keyframes shootingStar{
+    0%{   transform:translate(0,0) rotate(var(--angle)); opacity:0; }
+    8%{   opacity:1; }
+    100%{ transform:translate(var(--dx), var(--dy)) rotate(var(--angle)); opacity:0; }
   }
 
   /* -- back-to link -- */
