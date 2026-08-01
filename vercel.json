@@ -11,6 +11,6 @@
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
   "crons": [
-    { "path": "/cron/check-deadlines", "schedule": "0 23 * * *" }
+    { "path": "/cron/check-deadlines", "schedule": "0 1 * * *" }
   ]
 }
