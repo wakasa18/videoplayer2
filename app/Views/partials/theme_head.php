@@ -273,6 +273,10 @@
   input[type="text"]:focus, input[type="date"]:focus, textarea:focus, input[type="file"]:focus{
     outline:2px solid var(--cyan); outline-offset:1px;
   }
+  /* -- visible keyboard focus ring, site-wide -- */
+  a:focus-visible, button:focus-visible, select:focus-visible{
+    outline:2px solid var(--cyan); outline-offset:2px; border-radius:4px;
+  }
   input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1) brightness(1.4); cursor:pointer; }
 
   /* -- small icon-only buttons, used in any list item -- */

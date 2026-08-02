@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\AssignmentModel;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class Assignments extends BaseController
 {
@@ -154,5 +155,37 @@ class Assignments extends BaseController
         $this->assignmentModel->restore($id);
 
         return redirect()->to('/assignments')->with('success', 'Assignment restored.');
+    }
+
+    /**
+     * Download everything currently in the queue (pending + done, not
+     * soft-deleted) as a single JSON file — the only backup this data has
+     * outside Supabase itself.
+     */
+    public function export(): ResponseInterface
+    {
+        $assignments = $this->assignmentModel->getAllOrdered();
+
+        // Trim to the fields that are actually meaningful to the person
+        // reading this file back — leave out internal bookkeeping like the
+        // numeric id or the reminder-dedupe timestamp.
+        $data = array_map(static fn (array $a): array => [
+            'title'       => $a['title'],
+            'description' => $a['description'],
+            'due_date'    => $a['due_date'],
+            'status'      => $a['status'],
+            'priority'    => $a['priority'],
+            'subject'     => $a['subject'],
+            'created_at'  => $a['created_at'],
+            'updated_at'  => $a['updated_at'],
+        ], $assignments);
+
+        $filename = 'assignments-export-' . date('Y-m-d') . '.json';
+        $json     = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/json')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody($json);
     }
 }

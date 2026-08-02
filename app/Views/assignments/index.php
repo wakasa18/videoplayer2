@@ -102,6 +102,16 @@
   textarea#description{ min-height:64px; }
   .field-row{ display:flex; gap:12px; }
   .field-row > *{ flex:1; }
+
+  /* -- panel header row (title + export link) -- */
+  .panel-head-row{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .panel-head-row h2{ margin-bottom:0; }
+  .export-link{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--text-dim);
+    text-decoration:none; white-space:nowrap;
+    transition: color .15s ease;
+  }
+  .export-link:hover{ color:var(--cyan); }
   select{
     width:100%; background:var(--surface-2); border:1px solid var(--hairline);
     border-radius:6px; padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit;
@@ -124,7 +134,7 @@
   </header>
 
   <?php if (session()->getFlashdata('success')): ?>
-    <div class="flash success">
+    <div class="flash success" role="status" aria-live="polite">
       <?= esc(session()->getFlashdata('success')) ?>
       <?php if (session()->getFlashdata('undo_id')): ?>
         <form action="<?= base_url('assignments/' . (int) session()->getFlashdata('undo_id') . '/restore') ?>" method="post" style="display:inline;">
@@ -136,13 +146,18 @@
   <?php endif; ?>
 
   <?php if (session()->getFlashdata('error')): ?>
-    <div class="flash error"><?= esc(session()->getFlashdata('error')) ?></div>
+    <div class="flash error" role="alert"><?= esc(session()->getFlashdata('error')) ?></div>
   <?php endif; ?>
 
   <div class="layout">
 
     <div class="panel">
-      <h2>Task Queue (<?= count($assignments) ?>)</h2>
+      <div class="panel-head-row">
+        <h2>Task Queue (<?= count($assignments) ?>)</h2>
+        <?php if (! empty($assignments)): ?>
+          <a href="<?= base_url('assignments/export') ?>" class="export-link">&#8681; Export JSON</a>
+        <?php endif; ?>
+      </div>
 
       <?php if (empty($assignments)): ?>
         <div class="empty-state">No assignments logged yet. Add one to begin your queue.</div>
@@ -155,7 +170,7 @@
           <?php endif; ?>
           <span><?= $counts['done'] ?> done</span>
           <?php if ($counts['done'] > 0): ?>
-            <button type="button" class="hide-done-toggle" id="hideDoneToggle" onclick="toggleHideDone()">Hide completed</button>
+            <button type="button" class="hide-done-toggle" id="hideDoneToggle" onclick="toggleHideDone()" aria-pressed="false">Hide completed</button>
           <?php endif; ?>
         </div>
 
@@ -172,7 +187,10 @@
 
               <form action="<?= base_url('assignments/' . $a['id'] . '/toggle') ?>" method="post" class="task-toggle-form">
                 <?= csrf_field() ?>
-                <button type="submit" class="task-check <?= $isDone ? 'checked' : '' ?>" title="<?= $isDone ? 'Mark as pending' : 'Mark as done' ?>">
+                <button type="submit" class="task-check <?= $isDone ? 'checked' : '' ?>"
+                        title="<?= $isDone ? 'Mark as pending' : 'Mark as done' ?>"
+                        aria-label="<?= $isDone ? 'Mark ' . esc($a['title'], 'attr') . ' as pending' : 'Mark ' . esc($a['title'], 'attr') . ' as done' ?>"
+                        aria-pressed="<?= $isDone ? 'true' : 'false' ?>">
                   <?= $isDone ? '&#10003;' : '' ?>
                 </button>
               </form>
@@ -203,17 +221,17 @@
 
               <form action="<?= base_url('assignments/' . $a['id'] . '/update') ?>" method="post" class="task-edit-form hidden" id="edit-<?= $a['id'] ?>">
                 <?= csrf_field() ?>
-                <input type="text" name="title" value="<?= esc($a['title'], 'attr') ?>" maxlength="255" required>
-                <textarea name="description" rows="2" placeholder="Description (optional)"><?= esc($a['description']) ?></textarea>
+                <input type="text" name="title" value="<?= esc($a['title'], 'attr') ?>" maxlength="255" required aria-label="Title">
+                <textarea name="description" rows="2" placeholder="Description (optional)" aria-label="Description"><?= esc($a['description']) ?></textarea>
                 <div class="task-edit-row">
-                  <input type="date" name="due_date" value="<?= esc($a['due_date'] ?? '', 'attr') ?>">
-                  <select name="priority">
+                  <input type="date" name="due_date" value="<?= esc($a['due_date'] ?? '', 'attr') ?>" aria-label="Due date">
+                  <select name="priority" aria-label="Priority">
                     <option value="low" <?= $priority === 'low' ? 'selected' : '' ?>>Low</option>
                     <option value="medium" <?= $priority === 'medium' ? 'selected' : '' ?>>Medium</option>
                     <option value="high" <?= $priority === 'high' ? 'selected' : '' ?>>High</option>
                   </select>
                 </div>
-                <input type="text" name="subject" value="<?= esc($a['subject'] ?? '', 'attr') ?>" placeholder="Subject (optional)" maxlength="100">
+                <input type="text" name="subject" value="<?= esc($a['subject'] ?? '', 'attr') ?>" placeholder="Subject (optional)" maxlength="100" aria-label="Subject">
                 <div class="task-edit-actions">
                   <button type="submit" class="btn-primary">Save</button>
                   <button type="button" class="task-edit-cancel" onclick="toggleEdit(<?= $a['id'] ?>)">Cancel</button>
@@ -221,10 +239,10 @@
               </form>
 
               <div class="task-actions" id="actions-<?= $a['id'] ?>">
-                <button type="button" class="icon-edit" title="Edit" onclick="toggleEdit(<?= $a['id'] ?>)">&#9998;</button>
+                <button type="button" class="icon-edit" title="Edit" aria-label="Edit <?= esc($a['title'], 'attr') ?>" aria-expanded="false" aria-controls="edit-<?= $a['id'] ?>" onclick="toggleEdit(<?= $a['id'] ?>)">&#9998;</button>
                 <form action="<?= base_url('assignments/' . $a['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Delete this assignment?');">
                   <?= csrf_field() ?>
-                  <button type="submit" class="icon-del" title="Delete">&times;</button>
+                  <button type="submit" class="icon-del" title="Delete" aria-label="Delete <?= esc($a['title'], 'attr') ?>">&times;</button>
                 </form>
               </div>
 
@@ -276,7 +294,14 @@
   function toggleEdit(id) {
     document.getElementById('view-' + id).classList.toggle('hidden');
     document.getElementById('edit-' + id).classList.toggle('hidden');
-    document.getElementById('actions-' + id).classList.toggle('hidden');
+    const actions = document.getElementById('actions-' + id);
+    actions.classList.toggle('hidden');
+
+    const editBtn = document.querySelector('.icon-edit[aria-controls="edit-' + id + '"]');
+    if (editBtn) {
+      const nowEditing = !document.getElementById('edit-' + id).classList.contains('hidden');
+      editBtn.setAttribute('aria-expanded', nowEditing ? 'true' : 'false');
+    }
   }
 
   function toggleHideDone() {
@@ -284,6 +309,7 @@
     const btn  = document.getElementById('hideDoneToggle');
     const hidden = list.classList.toggle('hide-done');
     btn.textContent = hidden ? 'Show completed' : 'Hide completed';
+    btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
   }
 </script>
 </body>

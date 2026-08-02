@@ -20,6 +20,7 @@ $routes->get('notes', 'Notes::index');
 
 // Assignments
 $routes->get('assignments', 'Assignments::index');
+$routes->get('assignments/export', 'Assignments::export');
 $routes->post('assignments', 'Assignments::store');
 $routes->post('assignments/(:num)/update', 'Assignments::update/$1');
 $routes->post('assignments/(:num)/toggle', 'Assignments::toggle/$1');
