@@ -204,4 +204,83 @@ class AssignmentModel extends Model
             default      => abs($diff) . ' days overdue',
         };
     }
+
+    /**
+     * Soft-delete every currently-done, non-deleted assignment at once.
+     * Returns the affected ids so the caller can offer an Undo.
+     */
+    public function clearCompleted(): array
+    {
+        $done = $this->where('deleted_at', null)->where('status', 'done')->findAll();
+        $ids  = array_column($done, 'id');
+
+        if ($ids !== []) {
+            $this->whereIn('id', $ids)->update(null, ['deleted_at' => date('Y-m-d H:i:s')]);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Mark every currently-pending, non-deleted assignment as done at once.
+     * Returns the affected ids so the caller can offer an Undo.
+     */
+    public function markAllDone(): array
+    {
+        $pending = $this->where('deleted_at', null)->where('status', 'pending')->findAll();
+        $ids     = array_column($pending, 'id');
+
+        if ($ids !== []) {
+            $this->whereIn('id', $ids)->update(null, ['status' => 'done']);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Undo for clearCompleted(): un-delete a batch of ids.
+     */
+    public function restoreMany(array $ids): void
+    {
+        $ids = array_filter(array_map('intval', $ids));
+
+        if ($ids !== []) {
+            $this->whereIn('id', $ids)->update(null, ['deleted_at' => null]);
+        }
+    }
+
+    /**
+     * Undo for markAllDone(): put a batch of ids back to pending.
+     */
+    public function unmarkMany(array $ids): void
+    {
+        $ids = array_filter(array_map('intval', $ids));
+
+        if ($ids !== []) {
+            $this->whereIn('id', $ids)->update(null, ['status' => 'pending']);
+        }
+    }
+
+    /**
+     * Deterministic color for a subject tag, derived from the subject text
+     * itself so the same subject always renders the same color with no
+     * configuration needed. Returns CSS custom-property-friendly "r,g,b".
+     */
+    public static function subjectColorRgb(string $subject): string
+    {
+        $palette = [
+            '95,217,232',  // cyan
+            '155,125,238', // violet
+            '242,195,107', // gold
+            '229,99,107',  // red
+            '111,207,151', // green
+            '242,153,74',  // orange
+            '187,107,217', // purple
+            '86,204,242',  // sky blue
+        ];
+
+        $hash = crc32(strtolower(trim($subject)));
+
+        return $palette[$hash % count($palette)];
+    }
 }

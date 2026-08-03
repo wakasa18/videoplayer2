@@ -22,10 +22,15 @@ $routes->get('notes', 'Notes::index');
 $routes->get('assignments', 'Assignments::index');
 $routes->get('assignments/export', 'Assignments::export');
 $routes->post('assignments', 'Assignments::store');
+$routes->post('assignments/import', 'Assignments::import');
+$routes->post('assignments/clear-completed', 'Assignments::clearCompleted');
+$routes->post('assignments/mark-all-done', 'Assignments::markAllDone');
+$routes->post('assignments/bulk-undo', 'Assignments::bulkUndo');
 $routes->post('assignments/(:num)/update', 'Assignments::update/$1');
 $routes->post('assignments/(:num)/toggle', 'Assignments::toggle/$1');
 $routes->post('assignments/(:num)/delete', 'Assignments::destroy/$1');
 $routes->post('assignments/(:num)/restore', 'Assignments::restore/$1');
+$routes->post('assignments/(:num)/snooze', 'Assignments::snooze/$1');
 
 // Deadline reminder cron (see vercel.json "crons")
 $routes->get('cron/check-deadlines', 'Cron::checkDeadlines');

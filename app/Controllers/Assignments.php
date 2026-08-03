@@ -25,6 +25,7 @@ class Assignments extends BaseController
         $assignments = $this->assignmentModel->getAllOrdered();
 
         $counts = ['pending' => 0, 'overdue' => 0, 'done' => 0];
+        $subjects = [];
         foreach ($assignments as $a) {
             if ($a['status'] === 'done') {
                 $counts['done']++;
@@ -34,11 +35,17 @@ class Assignments extends BaseController
                     $counts['overdue']++;
                 }
             }
+            if (! empty($a['subject'])) {
+                $subjects[$a['subject']] = true;
+            }
         }
+        $subjects = array_keys($subjects);
+        sort($subjects, SORT_NATURAL | SORT_FLAG_CASE);
 
         return view('assignments/index', [
             'assignments' => $assignments,
             'counts'      => $counts,
+            'subjects'    => $subjects,
         ]);
     }
 
@@ -187,5 +194,129 @@ class Assignments extends BaseController
             ->setHeader('Content-Type', 'application/json')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($json);
+    }
+
+    /**
+     * Soft-delete every Done assignment at once.
+     */
+    public function clearCompleted(): RedirectResponse
+    {
+        $ids = $this->assignmentModel->clearCompleted();
+
+        if ($ids === []) {
+            return redirect()->to('/assignments')->with('error', 'Nothing marked done to clear.');
+        }
+
+        return redirect()->to('/assignments')
+            ->with('success', count($ids) . ' assignment' . (count($ids) === 1 ? '' : 's') . ' cleared.')
+            ->with('bulk_undo_type', 'restore')
+            ->with('bulk_undo_ids', $ids);
+    }
+
+    /**
+     * Mark every pending assignment as done at once.
+     */
+    public function markAllDone(): RedirectResponse
+    {
+        $ids = $this->assignmentModel->markAllDone();
+
+        if ($ids === []) {
+            return redirect()->to('/assignments')->with('error', 'Nothing pending to mark done.');
+        }
+
+        return redirect()->to('/assignments')
+            ->with('success', count($ids) . ' assignment' . (count($ids) === 1 ? '' : 's') . ' marked done.')
+            ->with('bulk_undo_type', 'unmark')
+            ->with('bulk_undo_ids', $ids);
+    }
+
+    /**
+     * Undo for either bulk action above, based on which type was stashed
+     * in the flash data that produced the Undo link.
+     */
+    public function bulkUndo(): RedirectResponse
+    {
+        $type = (string) $this->request->getPost('type');
+        $ids  = (array) $this->request->getPost('ids');
+
+        if ($type === 'restore') {
+            $this->assignmentModel->restoreMany($ids);
+        } elseif ($type === 'unmark') {
+            $this->assignmentModel->unmarkMany($ids);
+        }
+
+        return redirect()->to('/assignments')->with('success', 'Undone.');
+    }
+
+    /**
+     * Push a due date out by one day without opening the full edit form.
+     */
+    public function snooze(int $id): RedirectResponse
+    {
+        $assignment = $this->assignmentModel->find($id);
+
+        if (! $assignment || empty($assignment['due_date'])) {
+            return redirect()->to('/assignments')->with('error', 'Assignment not found.');
+        }
+
+        $newDate = date('Y-m-d', strtotime((string) $assignment['due_date'] . ' +1 day'));
+
+        $this->assignmentModel->update($id, [
+            'due_date'         => $newDate,
+            'reminder_sent_at' => null,
+        ]);
+
+        return redirect()->to('/assignments')->with('success', 'Pushed to ' . date('M j, Y', strtotime($newDate)) . '.');
+    }
+
+    /**
+     * Bulk-add assignments from a JSON file in the same shape export()
+     * produces (an array of objects with at least a title).
+     */
+    public function import(): RedirectResponse
+    {
+        $file = $this->request->getFile('import_file');
+
+        if (! $file || ! $file->isValid()) {
+            return redirect()->to('/assignments')->with('error', 'Choose a JSON file to import first.');
+        }
+
+        $contents = file_get_contents($file->getTempName());
+        $rows     = json_decode((string) $contents, true);
+
+        if (! is_array($rows)) {
+            return redirect()->to('/assignments')->with('error', "That file isn't valid JSON.");
+        }
+
+        $rows = array_slice($rows, 0, 500); // sane upper bound for a personal import
+
+        $imported = 0;
+        $skipped  = 0;
+
+        foreach ($rows as $row) {
+            if (! is_array($row) || empty($row['title']) || ! is_string($row['title'])) {
+                $skipped++;
+                continue;
+            }
+
+            $status = ($row['status'] ?? 'pending') === 'done' ? 'done' : 'pending';
+
+            $this->assignmentModel->insert([
+                'title'       => mb_substr(trim($row['title']), 0, 255),
+                'description' => ! empty($row['description']) ? (string) $row['description'] : null,
+                'due_date'    => ! empty($row['due_date']) ? (string) $row['due_date'] : null,
+                'subject'     => ! empty($row['subject']) ? mb_substr((string) $row['subject'], 0, 100) : null,
+                'priority'    => AssignmentModel::normalizePriority($row['priority'] ?? null),
+                'status'      => $status,
+            ]);
+            $imported++;
+        }
+
+        $message = "Imported {$imported} assignment" . ($imported === 1 ? '' : 's') . '.';
+        if ($skipped > 0) {
+            $message .= " Skipped {$skipped} row" . ($skipped === 1 ? '' : 's') . ' without a valid title.';
+        }
+
+        return redirect()->to('/assignments')->with($skipped > 0 && $imported === 0 ? 'error' : 'success', $message);
     }
 }

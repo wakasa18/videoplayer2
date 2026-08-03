@@ -17,23 +17,53 @@
   }
   .undo-link:hover{ color:var(--cyan); }
 
-  /* -- task summary bar -- */
+  /* -- panel header row (title + export/import) -- */
+  .panel-head-row{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .panel-head-row h2{ margin-bottom:0; }
+  .panel-head-actions{ display:flex; align-items:center; gap:14px; }
+  .export-link, .import-label{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--text-dim);
+    text-decoration:none; white-space:nowrap; cursor:pointer;
+    transition: color .15s ease;
+  }
+  .export-link:hover, .import-label:hover{ color:var(--cyan); }
+  .import-form{ display:inline-block; }
+
+  /* -- search + sort controls -- */
+  .task-controls{ display:flex; gap:10px; margin-bottom:10px; }
+  .task-controls input[type="search"]{ flex:1; }
+  .task-controls select{ flex:none; width:auto; min-width:130px; }
+
+  /* -- filter chips -- */
+  .filter-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .chip{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--hairline); color:var(--text-dim);
+    padding:4px 10px; border-radius:20px;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .chip:hover{ border-color:var(--text-dim); color:var(--text); }
+  .chip.active{ border-color:var(--cyan); color:#CFF3F8; background:rgba(95,217,232,.10); }
+
+  /* -- task summary bar + bulk actions -- */
   .task-summary{
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     font-size:12px; color:var(--text-dim); margin-bottom:14px;
     font-family:'JetBrains Mono', Menlo, monospace;
   }
   .task-summary .count-overdue{ color:#F7CDD0; }
-  .hide-done-toggle{
-    margin-left:auto; background:transparent; border:1px solid var(--hairline); color:var(--text-dim);
+  .bulk-actions{ margin-left:auto; display:flex; gap:8px; }
+  .bulk-btn, .hide-done-toggle{
+    background:transparent; border:1px solid var(--hairline); color:var(--text-dim);
     font-family:inherit; font-size:11px; padding:5px 10px; border-radius:20px;
     transition: border-color .15s ease, color .15s ease;
   }
-  .hide-done-toggle:hover{ border-color:var(--cyan); color:var(--cyan); }
+  .bulk-btn:hover, .hide-done-toggle:hover{ border-color:var(--cyan); color:var(--cyan); }
 
   /* -- task queue -- */
   .task-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
   .task-list.hide-done .task-item.done{ display:none; }
+  .task-item.filtered-out{ display:none; }
   .task-item{
     display:flex; align-items:flex-start; gap:12px;
     background:var(--surface-2); border:1px solid var(--hairline); border-radius:8px;
@@ -71,13 +101,18 @@
   .task-item.done .task-title{ text-decoration:line-through; color:var(--text-dim); opacity:.75; }
   .subject-tag{
     display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em;
-    color:var(--text-dim); background:var(--surface); border:1px solid var(--hairline);
-    padding:2px 7px; border-radius:20px;
+    padding:2px 7px; border-radius:20px; border:1px solid;
   }
   .task-desc{ font-size:12px; color:var(--text-dim); margin-top:3px; line-height:1.45; }
   .task-foot{ display:flex; align-items:center; gap:10px; margin-top:9px; flex-wrap:wrap; }
   .task-due{ font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--text-dim); cursor:default; }
   .task-item.overdue .task-due{ color:#F7CDD0; }
+  .snooze-btn{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; color:var(--text-dim);
+    background:transparent; border:1px solid var(--hairline); border-radius:20px; padding:2px 8px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .snooze-btn:hover{ border-color:var(--cyan); color:var(--cyan); }
 
   .task-actions{ display:flex; flex-direction:column; flex:none; }
 
@@ -102,16 +137,6 @@
   textarea#description{ min-height:64px; }
   .field-row{ display:flex; gap:12px; }
   .field-row > *{ flex:1; }
-
-  /* -- panel header row (title + export link) -- */
-  .panel-head-row{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; }
-  .panel-head-row h2{ margin-bottom:0; }
-  .export-link{
-    font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--text-dim);
-    text-decoration:none; white-space:nowrap;
-    transition: color .15s ease;
-  }
-  .export-link:hover{ color:var(--cyan); }
   select{
     width:100%; background:var(--surface-2); border:1px solid var(--hairline);
     border-radius:6px; padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit;
@@ -142,6 +167,16 @@
           <button type="submit" class="undo-link">Undo</button>
         </form>
       <?php endif; ?>
+      <?php if (session()->getFlashdata('bulk_undo_ids')): ?>
+        <form action="<?= base_url('assignments/bulk-undo') ?>" method="post" style="display:inline;">
+          <?= csrf_field() ?>
+          <input type="hidden" name="type" value="<?= esc(session()->getFlashdata('bulk_undo_type'), 'attr') ?>">
+          <?php foreach (session()->getFlashdata('bulk_undo_ids') as $bid): ?>
+            <input type="hidden" name="ids[]" value="<?= (int) $bid ?>">
+          <?php endforeach; ?>
+          <button type="submit" class="undo-link">Undo</button>
+        </form>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 
@@ -155,7 +190,14 @@
       <div class="panel-head-row">
         <h2>Task Queue (<?= count($assignments) ?>)</h2>
         <?php if (! empty($assignments)): ?>
-          <a href="<?= base_url('assignments/export') ?>" class="export-link">&#8681; Export JSON</a>
+          <div class="panel-head-actions">
+            <form action="<?= base_url('assignments/import') ?>" method="post" enctype="multipart/form-data" class="import-form">
+              <?= csrf_field() ?>
+              <label class="import-label" for="importFile">&#8679; Import JSON</label>
+              <input type="file" id="importFile" name="import_file" accept="application/json" class="sr-only" onchange="this.form.submit()">
+            </form>
+            <a href="<?= base_url('assignments/export') ?>" class="export-link">&#8681; Export JSON</a>
+          </div>
         <?php endif; ?>
       </div>
 
@@ -169,10 +211,43 @@
             <span class="count-overdue"><?= $counts['overdue'] ?> overdue</span>
           <?php endif; ?>
           <span><?= $counts['done'] ?> done</span>
-          <?php if ($counts['done'] > 0): ?>
-            <button type="button" class="hide-done-toggle" id="hideDoneToggle" onclick="toggleHideDone()" aria-pressed="false">Hide completed</button>
-          <?php endif; ?>
+          <div class="bulk-actions">
+            <?php if ($counts['pending'] > 0): ?>
+              <form action="<?= base_url('assignments/mark-all-done') ?>" method="post" onsubmit="return confirm('Mark all pending assignments as done?');" style="display:inline;">
+                <?= csrf_field() ?>
+                <button type="submit" class="bulk-btn">Mark all done</button>
+              </form>
+            <?php endif; ?>
+            <?php if ($counts['done'] > 0): ?>
+              <form action="<?= base_url('assignments/clear-completed') ?>" method="post" onsubmit="return confirm('Clear every completed assignment?');" style="display:inline;">
+                <?= csrf_field() ?>
+                <button type="submit" class="bulk-btn">Clear completed</button>
+              </form>
+              <button type="button" class="hide-done-toggle" id="hideDoneToggle" onclick="toggleHideDone()" aria-pressed="false">Hide completed</button>
+            <?php endif; ?>
+          </div>
         </div>
+
+        <div class="task-controls">
+          <input type="search" id="taskSearch" placeholder="Search titles..." aria-label="Search assignments" oninput="filterTasks()">
+          <select id="sortSelect" aria-label="Sort by" onchange="sortTasks(); saveSortPref();">
+            <option value="due">Sort: Due date</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="alpha">Sort: Alphabetical</option>
+            <option value="subject">Sort: Subject</option>
+          </select>
+        </div>
+
+        <?php if (! empty($subjects)): ?>
+          <div class="filter-chips" id="filterChips">
+            <?php foreach ($subjects as $subj): ?>
+              <button type="button" class="chip" data-filter-type="subject" data-filter-value="<?= esc($subj, 'attr') ?>" aria-pressed="false" onclick="toggleChip(this)"><?= esc($subj) ?></button>
+            <?php endforeach; ?>
+            <button type="button" class="chip" data-filter-type="priority" data-filter-value="high" aria-pressed="false" onclick="toggleChip(this)">High</button>
+            <button type="button" class="chip" data-filter-type="priority" data-filter-value="medium" aria-pressed="false" onclick="toggleChip(this)">Medium</button>
+            <button type="button" class="chip" data-filter-type="priority" data-filter-value="low" aria-pressed="false" onclick="toggleChip(this)">Low</button>
+          </div>
+        <?php endif; ?>
 
         <ul class="task-list" id="taskList">
           <?php foreach ($assignments as $a): ?>
@@ -180,10 +255,17 @@
               $isDone     = $a['status'] === 'done';
               $isOverdue  = \App\Models\AssignmentModel::isOverdue($a);
               $priority   = $a['priority'] ?? 'medium';
+              $priorityWeight = \App\Models\AssignmentModel::priorityWeight($priority);
               $dueText    = \App\Models\AssignmentModel::relativeDueDate($a);
               $exactDate  = ! empty($a['due_date']) ? date('M j, Y', strtotime((string) $a['due_date'])) : '';
+              $subjectRgb = ! empty($a['subject']) ? \App\Models\AssignmentModel::subjectColorRgb($a['subject']) : '';
             ?>
-            <li class="task-item <?= $isDone ? 'done' : '' ?> <?= $isOverdue ? 'overdue' : '' ?> priority-<?= esc($priority, 'attr') ?>">
+            <li class="task-item <?= $isDone ? 'done' : '' ?> <?= $isOverdue ? 'overdue' : '' ?> priority-<?= esc($priority, 'attr') ?>"
+                data-title="<?= esc($a['title'], 'attr') ?>"
+                data-subject="<?= esc($a['subject'] ?? '', 'attr') ?>"
+                data-priority="<?= esc($priority, 'attr') ?>"
+                data-priority-weight="<?= $priorityWeight ?>"
+                data-due="<?= esc($a['due_date'] ?? '', 'attr') ?>">
 
               <form action="<?= base_url('assignments/' . $a['id'] . '/toggle') ?>" method="post" class="task-toggle-form">
                 <?= csrf_field() ?>
@@ -199,7 +281,7 @@
                 <div class="task-title-row">
                   <div class="task-title"><?= esc($a['title']) ?></div>
                   <?php if (! empty($a['subject'])): ?>
-                    <span class="subject-tag"><?= esc($a['subject']) ?></span>
+                    <span class="subject-tag" style="border-color:rgba(<?= $subjectRgb ?>,.4); color:rgb(<?= $subjectRgb ?>); background:rgba(<?= $subjectRgb ?>,.10);"><?= esc($a['subject']) ?></span>
                   <?php endif; ?>
                 </div>
                 <?php if (! empty($a['description'])): ?>
@@ -215,6 +297,12 @@
                   <?php endif; ?>
                   <?php if ($dueText): ?>
                     <span class="task-due" title="<?= esc($exactDate, 'attr') ?>"><?= esc($dueText) ?></span>
+                  <?php endif; ?>
+                  <?php if (! empty($a['due_date']) && ! $isDone): ?>
+                    <form action="<?= base_url('assignments/' . $a['id'] . '/snooze') ?>" method="post" style="display:inline;">
+                      <?= csrf_field() ?>
+                      <button type="submit" class="snooze-btn" title="Push due date back one day" aria-label="Push <?= esc($a['title'], 'attr') ?> back one day">+1 day</button>
+                    </form>
                   <?php endif; ?>
                 </div>
               </div>
@@ -249,6 +337,7 @@
             </li>
           <?php endforeach; ?>
         </ul>
+        <div class="empty-state hidden" id="noMatches">No assignments match your search or filters.</div>
       <?php endif; ?>
     </div>
 
@@ -311,6 +400,97 @@
     btn.textContent = hidden ? 'Show completed' : 'Hide completed';
     btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
   }
+
+  // --- search + filter chips ---
+  function toggleChip(btn) {
+    btn.classList.toggle('active');
+    btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+    filterTasks();
+  }
+
+  function filterTasks() {
+    const searchEl = document.getElementById('taskSearch');
+    const search = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    const activeSubjects = Array.from(document.querySelectorAll('.chip[data-filter-type="subject"].active')).map(c => c.dataset.filterValue);
+    const activePriorities = Array.from(document.querySelectorAll('.chip[data-filter-type="priority"].active')).map(c => c.dataset.filterValue);
+
+    const items = document.querySelectorAll('.task-item');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+      const title = (item.dataset.title || '').toLowerCase();
+      const subject = item.dataset.subject || '';
+      const priority = item.dataset.priority || '';
+
+      const matchesSearch = search === '' || title.includes(search);
+      const matchesSubject = activeSubjects.length === 0 || activeSubjects.includes(subject);
+      const matchesPriority = activePriorities.length === 0 || activePriorities.includes(priority);
+
+      const visible = matchesSearch && matchesSubject && matchesPriority;
+      item.classList.toggle('filtered-out', !visible);
+      if (visible) visibleCount++;
+    });
+
+    const noMatches = document.getElementById('noMatches');
+    if (noMatches) {
+      noMatches.classList.toggle('hidden', visibleCount !== 0);
+    }
+  }
+
+  // --- sort ---
+  function sortTasks() {
+    const select = document.getElementById('sortSelect');
+    const list = document.getElementById('taskList');
+    if (!select || !list) return;
+    const mode = select.value;
+    const items = Array.from(list.children);
+
+    items.sort((a, b) => {
+      const aDone = a.classList.contains('done') ? 1 : 0;
+      const bDone = b.classList.contains('done') ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+
+      const aTitle = (a.dataset.title || '').toLowerCase();
+      const bTitle = (b.dataset.title || '').toLowerCase();
+      const aDue = a.dataset.due || '9999-12-31';
+      const bDue = b.dataset.due || '9999-12-31';
+      const aPri = parseInt(a.dataset.priorityWeight || '2', 10);
+      const bPri = parseInt(b.dataset.priorityWeight || '2', 10);
+      const aSub = (a.dataset.subject || '\uffff').toLowerCase();
+      const bSub = (b.dataset.subject || '\uffff').toLowerCase();
+
+      switch (mode) {
+        case 'priority':
+          if (bPri !== aPri) return bPri - aPri;
+          return aDue.localeCompare(bDue);
+        case 'alpha':
+          return aTitle.localeCompare(bTitle);
+        case 'subject':
+          if (aSub !== bSub) return aSub.localeCompare(bSub);
+          return aTitle.localeCompare(bTitle);
+        case 'due':
+        default:
+          if (aDue !== bDue) return aDue.localeCompare(bDue);
+          return bPri - aPri;
+      }
+    });
+
+    items.forEach(item => list.appendChild(item));
+  }
+
+  function saveSortPref() {
+    const select = document.getElementById('sortSelect');
+    if (select) sessionStorage.setItem('assignmentsSort', select.value);
+  }
+
+  (function restoreSortPref() {
+    const saved = sessionStorage.getItem('assignmentsSort');
+    const select = document.getElementById('sortSelect');
+    if (saved && select) {
+      select.value = saved;
+      sortTasks();
+    }
+  })();
 </script>
 </body>
 </html>
