@@ -145,11 +145,20 @@ class Cron extends BaseController
             'newline'    => "\r\n",
         ]);
 
-        $count = count($assignments);
+        $count        = count($assignments);
+        $overdueCount = AssignmentModel::countOverdue($assignments);
 
-        $subject = $count === 1
-            ? 'Due soon: ' . $assignments[0]['title']
-            : "{$count} assignments due soon";
+        if ($count === 1) {
+            $subject = $overdueCount === 1
+                ? 'Overdue: ' . $assignments[0]['title']
+                : 'Due soon: ' . $assignments[0]['title'];
+        } elseif ($overdueCount === $count) {
+            $subject = "{$count} assignments overdue";
+        } elseif ($overdueCount > 0) {
+            $subject = "{$overdueCount} overdue, " . ($count - $overdueCount) . ' due soon';
+        } else {
+            $subject = "{$count} assignments due soon";
+        }
 
         $email->setFrom($from, "Damon's Archive");
         $email->setTo($to);
@@ -176,11 +185,21 @@ class Cron extends BaseController
     private function buildDigestEmailBody(array $assignments): string
     {
         $siteUrl = rtrim(base_url('assignments'), '/');
-        $count   = count($assignments);
+        $count        = count($assignments);
+        $overdueCount = AssignmentModel::countOverdue($assignments);
 
-        $intro = $count === 1
-            ? '1 assignment needs your attention:'
-            : "{$count} assignments need your attention:";
+        if ($count === 1) {
+            $intro = $overdueCount === 1
+                ? '1 assignment is overdue:'
+                : '1 assignment needs your attention:';
+        } elseif ($overdueCount === $count) {
+            $intro = "All {$count} of these are overdue:";
+        } elseif ($overdueCount > 0) {
+            $upcoming = $count - $overdueCount;
+            $intro = "{$overdueCount} overdue, {$upcoming} coming up:";
+        } else {
+            $intro = "{$count} assignments need your attention:";
+        }
 
         $cards = '';
         foreach ($assignments as $a) {
@@ -241,10 +260,14 @@ class Cron extends BaseController
             $descHtml = '<div style="font-size:13px; color:#6b7085; margin-top:6px; line-height:1.55;">' . nl2br(esc($a['description'])) . '</div>';
         }
 
+        $overdueBadge = $isOverdue
+            ? '<span style="display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; padding:2px 8px; border-radius:20px; border:1px solid rgba(229,99,107,.5); color:#C0392B; background:rgba(229,99,107,.10); margin-right:7px;">Overdue</span>'
+            : '';
+
         return '
       <div style="border-left:4px solid ' . $borderColor . '; background:#f9fafc; border-radius:6px; padding:14px 16px; margin-bottom:12px;">
         <div style="font-size:15px; font-weight:600; color:#1B1430;">' . esc($a['title']) . $subjectHtml . '</div>
-        <div style="font-size:13px; color:' . $dueColor . '; margin-top:5px; font-weight:' . $dueWeight . ';">' . esc($dueText) . '</div>' . $descHtml . '
+        <div style="margin-top:7px;">' . $overdueBadge . '<span style="font-size:13px; color:' . $dueColor . '; font-weight:' . $dueWeight . ';">' . esc($dueText) . '</span></div>' . $descHtml . '
       </div>';
     }
 }

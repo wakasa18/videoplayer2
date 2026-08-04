@@ -127,6 +127,16 @@ class AssignmentModel extends Model
     }
 
     /**
+     * How many assignments in a list are currently overdue. Shared by the
+     * site-wide banner and the reminder email so both describe urgency
+     * the same way.
+     */
+    public static function countOverdue(array $assignments): int
+    {
+        return count(array_filter($assignments, [self::class, 'isOverdue']));
+    }
+
+    /**
      * Pending assignments due within the next $daysAhead days, or already
      * overdue. Used to power the site-wide "due soon" banner shown on
      * every page.
