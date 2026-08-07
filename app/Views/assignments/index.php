@@ -83,6 +83,9 @@
   .task-item.overdue{ border-color:rgba(229,99,107,.35); }
   .task-item.priority-high{ border-left:3px solid var(--red); }
   .task-item.priority-medium{ border-left:3px solid var(--gold); }
+  .task-item.drag-mode{ cursor:grab; }
+  .task-item.drag-mode:active{ cursor:grabbing; }
+  .task-item.drag-over{ border-color:var(--cyan); box-shadow:0 0 0 1px rgba(95,217,232,.3); }
 
   .task-toggle-form{ flex:none; margin-top:1px; }
   .task-check{
@@ -103,6 +106,12 @@
     display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em;
     padding:2px 7px; border-radius:20px; border:1px solid;
   }
+  .link-icon{ color:var(--text-dim); text-decoration:none; font-size:13px; transition:color .15s ease; }
+  .link-icon:hover{ color:var(--cyan); }
+  .recur-badge{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; color:var(--text-dim);
+    display:inline-flex; align-items:center; gap:3px;
+  }
   .task-desc{ font-size:12px; color:var(--text-dim); margin-top:3px; line-height:1.45; }
   .task-foot{ display:flex; align-items:center; gap:10px; margin-top:9px; flex-wrap:wrap; }
   .task-due{ font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--text-dim); cursor:default; }
@@ -114,13 +123,34 @@
   }
   .snooze-btn:hover{ border-color:var(--cyan); color:var(--cyan); }
 
+  /* -- notes -- */
+  .notes-toggle{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; color:var(--text-dim);
+    background:transparent; border:1px solid var(--hairline); border-radius:20px; padding:2px 8px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .notes-toggle:hover{ border-color:var(--cyan); color:var(--cyan); }
+  .notes-panel{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--hairline); }
+  .notes-log{
+    font-size:12px; color:var(--text-dim); line-height:1.6; white-space:pre-wrap;
+    margin:0 0 8px; max-height:140px; overflow-y:auto;
+  }
+  .notes-add-row{ display:flex; gap:6px; }
+  .notes-add-row input[type="text"]{ flex:1; padding:7px 10px; font-size:12px; }
+  .notes-add-row button{
+    flex:none; background:var(--surface); border:1px solid var(--hairline); color:var(--text-dim);
+    border-radius:6px; padding:7px 12px; font-size:12px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .notes-add-row button:hover{ border-color:var(--cyan); color:var(--cyan); }
+
   .task-actions{ display:flex; flex-direction:column; flex:none; }
 
   /* -- inline edit form -- */
   .task-edit-form{ flex:1; display:flex; flex-direction:column; gap:8px; }
   .task-edit-row{ display:flex; gap:8px; }
   .task-edit-row > *{ flex:1; }
-  .task-edit-form input[type="text"], .task-edit-form input[type="date"],
+  .task-edit-form input[type="text"], .task-edit-form input[type="date"], .task-edit-form input[type="time"], .task-edit-form input[type="url"],
   .task-edit-form textarea, .task-edit-form select{
     padding:8px 10px; font-size:13px;
   }
@@ -184,6 +214,8 @@
     <div class="flash error" role="alert"><?= esc(session()->getFlashdata('error')) ?></div>
   <?php endif; ?>
 
+  <form id="reorderForm" class="hidden"><?= csrf_field() ?></form>
+
   <div class="layout">
 
     <div class="panel">
@@ -230,11 +262,12 @@
 
         <div class="task-controls">
           <input type="search" id="taskSearch" placeholder="Search titles..." aria-label="Search assignments" oninput="filterTasks()">
-          <select id="sortSelect" aria-label="Sort by" onchange="sortTasks(); saveSortPref();">
+          <select id="sortSelect" aria-label="Sort by" onchange="sortTasks(); saveSortPref(); toggleDragMode();">
             <option value="due">Sort: Due date</option>
             <option value="priority">Sort: Priority</option>
             <option value="alpha">Sort: Alphabetical</option>
             <option value="subject">Sort: Subject</option>
+            <option value="manual">Sort: Manual (drag)</option>
           </select>
         </div>
 
@@ -259,13 +292,17 @@
               $dueText    = \App\Models\AssignmentModel::relativeDueDate($a);
               $exactDate  = ! empty($a['due_date']) ? date('M j, Y', strtotime((string) $a['due_date'])) : '';
               $subjectRgb = ! empty($a['subject']) ? \App\Models\AssignmentModel::subjectColorRgb($a['subject']) : '';
+              $noteCount  = ! empty($a['notes_log']) ? substr_count((string) $a['notes_log'], "\n") + 1 : 0;
+              $recurLabel = ['weekly' => 'Weekly', 'biweekly' => 'Every 2 wks', 'monthly' => 'Monthly'][$a['recurrence'] ?? ''] ?? null;
             ?>
             <li class="task-item <?= $isDone ? 'done' : '' ?> <?= $isOverdue ? 'overdue' : '' ?> priority-<?= esc($priority, 'attr') ?>"
+                data-id="<?= $a['id'] ?>"
                 data-title="<?= esc($a['title'], 'attr') ?>"
                 data-subject="<?= esc($a['subject'] ?? '', 'attr') ?>"
                 data-priority="<?= esc($priority, 'attr') ?>"
                 data-priority-weight="<?= $priorityWeight ?>"
-                data-due="<?= esc($a['due_date'] ?? '', 'attr') ?>">
+                data-due="<?= esc($a['due_date'] ?? '', 'attr') ?>"
+                data-sort-order="<?= (int) ($a['sort_order'] ?? 0) ?>">
 
               <form action="<?= base_url('assignments/' . $a['id'] . '/toggle') ?>" method="post" class="task-toggle-form">
                 <?= csrf_field() ?>
@@ -280,8 +317,14 @@
               <div class="task-meta" id="view-<?= $a['id'] ?>">
                 <div class="task-title-row">
                   <div class="task-title"><?= esc($a['title']) ?></div>
+                  <?php if (! empty($a['link_url'])): ?>
+                    <a href="<?= esc($a['link_url'], 'attr') ?>" class="link-icon" target="_blank" rel="noopener" title="Open link" aria-label="Open link for <?= esc($a['title'], 'attr') ?>">&#128279;</a>
+                  <?php endif; ?>
                   <?php if (! empty($a['subject'])): ?>
                     <span class="subject-tag" style="border-color:rgba(<?= $subjectRgb ?>,.4); color:rgb(<?= $subjectRgb ?>); background:rgba(<?= $subjectRgb ?>,.10);"><?= esc($a['subject']) ?></span>
+                  <?php endif; ?>
+                  <?php if ($recurLabel): ?>
+                    <span class="recur-badge" title="Repeats">&#8635; <?= esc($recurLabel) ?></span>
                   <?php endif; ?>
                 </div>
                 <?php if (! empty($a['description'])): ?>
@@ -304,6 +347,18 @@
                       <button type="submit" class="snooze-btn" title="Push due date back one day" aria-label="Push <?= esc($a['title'], 'attr') ?> back one day">+1 day</button>
                     </form>
                   <?php endif; ?>
+                  <button type="button" class="notes-toggle" aria-expanded="false" aria-controls="notes-<?= $a['id'] ?>" onclick="toggleNotes(<?= $a['id'] ?>)">Notes<?= $noteCount > 0 ? ' (' . $noteCount . ')' : '' ?></button>
+                </div>
+
+                <div class="notes-panel hidden" id="notes-<?= $a['id'] ?>">
+                  <?php if (! empty($a['notes_log'])): ?>
+                    <div class="notes-log"><?= esc($a['notes_log']) ?></div>
+                  <?php endif; ?>
+                  <form action="<?= base_url('assignments/' . $a['id'] . '/notes') ?>" method="post" class="notes-add-row">
+                    <?= csrf_field() ?>
+                    <input type="text" name="note" placeholder="Add a note..." maxlength="500" aria-label="Add a note">
+                    <button type="submit">Add</button>
+                  </form>
                 </div>
               </div>
 
@@ -313,13 +368,23 @@
                 <textarea name="description" rows="2" placeholder="Description (optional)" aria-label="Description"><?= esc($a['description']) ?></textarea>
                 <div class="task-edit-row">
                   <input type="date" name="due_date" value="<?= esc($a['due_date'] ?? '', 'attr') ?>" aria-label="Due date">
+                  <input type="time" name="due_time" value="<?= esc($a['due_time'] ?? '', 'attr') ?>" aria-label="Due time">
+                </div>
+                <div class="task-edit-row">
                   <select name="priority" aria-label="Priority">
                     <option value="low" <?= $priority === 'low' ? 'selected' : '' ?>>Low</option>
                     <option value="medium" <?= $priority === 'medium' ? 'selected' : '' ?>>Medium</option>
                     <option value="high" <?= $priority === 'high' ? 'selected' : '' ?>>High</option>
                   </select>
+                  <select name="recurrence" aria-label="Repeat">
+                    <option value="" <?= empty($a['recurrence']) ? 'selected' : '' ?>>No repeat</option>
+                    <option value="weekly" <?= ($a['recurrence'] ?? '') === 'weekly' ? 'selected' : '' ?>>Weekly</option>
+                    <option value="biweekly" <?= ($a['recurrence'] ?? '') === 'biweekly' ? 'selected' : '' ?>>Every 2 weeks</option>
+                    <option value="monthly" <?= ($a['recurrence'] ?? '') === 'monthly' ? 'selected' : '' ?>>Monthly</option>
+                  </select>
                 </div>
                 <input type="text" name="subject" value="<?= esc($a['subject'] ?? '', 'attr') ?>" placeholder="Subject (optional)" maxlength="100" aria-label="Subject">
+                <input type="url" name="link_url" value="<?= esc($a['link_url'] ?? '', 'attr') ?>" placeholder="Link (optional)" aria-label="Link URL">
                 <div class="task-edit-actions">
                   <button type="submit" class="btn-primary">Save</button>
                   <button type="button" class="task-edit-cancel" onclick="toggleEdit(<?= $a['id'] ?>)">Cancel</button>
@@ -358,6 +423,13 @@
             <input type="date" id="due_date" name="due_date">
           </div>
           <div>
+            <label for="due_time">Due time (optional)</label>
+            <input type="time" id="due_time" name="due_time">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div>
             <label for="priority">Priority</label>
             <select id="priority" name="priority">
               <option value="low">Low</option>
@@ -365,10 +437,27 @@
               <option value="high">High</option>
             </select>
           </div>
+          <div>
+            <label for="recurrence">Repeat</label>
+            <select id="recurrence" name="recurrence">
+              <option value="">No repeat</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
         </div>
 
-        <label for="subject">Subject (optional)</label>
-        <input type="text" id="subject" name="subject" maxlength="100" placeholder="e.g. Math, History">
+        <div class="field-row">
+          <div>
+            <label for="subject">Subject (optional)</label>
+            <input type="text" id="subject" name="subject" maxlength="100" placeholder="e.g. Math, History">
+          </div>
+          <div>
+            <label for="link_url">Link (optional)</label>
+            <input type="url" id="link_url" name="link_url" placeholder="Portal or instructions URL">
+          </div>
+        </div>
 
         <button type="submit" class="btn-primary">Add to queue</button>
       </form>
@@ -390,6 +479,15 @@
     if (editBtn) {
       const nowEditing = !document.getElementById('edit-' + id).classList.contains('hidden');
       editBtn.setAttribute('aria-expanded', nowEditing ? 'true' : 'false');
+    }
+  }
+
+  function toggleNotes(id) {
+    const panel = document.getElementById('notes-' + id);
+    panel.classList.toggle('hidden');
+    const btn = document.querySelector('.notes-toggle[aria-controls="notes-' + id + '"]');
+    if (btn) {
+      btn.setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true');
     }
   }
 
@@ -458,6 +556,8 @@
       const bPri = parseInt(b.dataset.priorityWeight || '2', 10);
       const aSub = (a.dataset.subject || '\uffff').toLowerCase();
       const bSub = (b.dataset.subject || '\uffff').toLowerCase();
+      const aOrder = parseInt(a.dataset.sortOrder || '0', 10);
+      const bOrder = parseInt(b.dataset.sortOrder || '0', 10);
 
       switch (mode) {
         case 'priority':
@@ -468,6 +568,8 @@
         case 'subject':
           if (aSub !== bSub) return aSub.localeCompare(bSub);
           return aTitle.localeCompare(bTitle);
+        case 'manual':
+          return aOrder - bOrder;
         case 'due':
         default:
           if (aDue !== bDue) return aDue.localeCompare(bDue);
@@ -483,6 +585,79 @@
     if (select) sessionStorage.setItem('assignmentsSort', select.value);
   }
 
+  // --- manual drag-to-reorder ---
+  let dragSrcEl = null;
+
+  function toggleDragMode() {
+    const select = document.getElementById('sortSelect');
+    const isManual = select && select.value === 'manual';
+    document.querySelectorAll('.task-item').forEach(item => {
+      item.classList.toggle('drag-mode', isManual);
+      if (isManual) {
+        item.setAttribute('draggable', 'true');
+      } else {
+        item.removeAttribute('draggable');
+      }
+    });
+  }
+
+  function handleDragStart(e) {
+    dragSrcEl = e.currentTarget;
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e) {
+    if (e.currentTarget.getAttribute('draggable') !== 'true') return true;
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+    return false;
+  }
+
+  function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+
+  function handleDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+    const target = e.currentTarget;
+    target.classList.remove('drag-over');
+
+    if (dragSrcEl && dragSrcEl !== target) {
+      const list = document.getElementById('taskList');
+      const items = Array.from(list.children);
+      const srcIndex = items.indexOf(dragSrcEl);
+      const targetIndex = items.indexOf(target);
+      if (srcIndex < targetIndex) {
+        target.after(dragSrcEl);
+      } else {
+        target.before(dragSrcEl);
+      }
+      persistOrder();
+    }
+    return false;
+  }
+
+  function persistOrder() {
+    const ids = Array.from(document.querySelectorAll('#taskList .task-item')).map(el => el.dataset.id);
+    const csrfInput = document.querySelector('#reorderForm input[type="hidden"]');
+    const body = new URLSearchParams();
+    body.set('ids', ids.join(','));
+    if (csrfInput) body.set(csrfInput.name, csrfInput.value);
+
+    fetch('<?= base_url('assignments/reorder') ?>', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    }).catch(() => { /* best-effort; a failed reorder save just reverts on next reload */ });
+  }
+
+  document.querySelectorAll('.task-item').forEach(item => {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('dragleave', handleDragLeave);
+    item.addEventListener('drop', handleDrop);
+  });
+
   (function restoreSortPref() {
     const saved = sessionStorage.getItem('assignmentsSort');
     const select = document.getElementById('sortSelect');
@@ -490,6 +665,7 @@
       select.value = saved;
       sortTasks();
     }
+    toggleDragMode();
   })();
 </script>
 </body>

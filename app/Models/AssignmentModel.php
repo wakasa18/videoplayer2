@@ -17,9 +17,14 @@ class AssignmentModel extends Model
         'title',
         'description',
         'due_date',
+        'due_time',
         'status',
         'priority',
         'subject',
+        'link_url',
+        'recurrence',
+        'notes_log',
+        'sort_order',
         'deleted_at',
         'reminder_sent_at',
     ];
@@ -33,7 +38,8 @@ class AssignmentModel extends Model
         'title' => 'required|min_length[1]|max_length[255]',
     ];
 
-    public const PRIORITIES = ['low', 'medium', 'high'];
+    public const PRIORITIES  = ['low', 'medium', 'high'];
+    public const RECURRENCES = ['weekly', 'biweekly', 'monthly'];
 
     /**
      * Pending assignments first (soonest due date first, no-due-date last),
@@ -65,7 +71,9 @@ class AssignmentModel extends Model
     }
 
     /**
-     * Flip an assignment between pending and done.
+     * Flip an assignment between pending and done. If it's being completed
+     * and has a recurrence set with a due date, spins off the next
+     * occurrence automatically.
      */
     public function toggleStatus(int $id): bool
     {
@@ -75,9 +83,76 @@ class AssignmentModel extends Model
             return false;
         }
 
-        $newStatus = $assignment['status'] === 'done' ? 'pending' : 'done';
+        $completing = $assignment['status'] !== 'done';
+        $newStatus  = $completing ? 'done' : 'pending';
 
-        return $this->update($id, ['status' => $newStatus]);
+        $ok = $this->update($id, ['status' => $newStatus]);
+
+        if ($ok && $completing && ! empty($assignment['recurrence']) && ! empty($assignment['due_date'])) {
+            $this->createNextOccurrence($assignment);
+        }
+
+        return $ok;
+    }
+
+    /**
+     * Insert the next occurrence of a recurring assignment, due date
+     * advanced by its repeat interval. Everything else carries over as a
+     * fresh copy — notes and the reminder flag deliberately do not, since
+     * this is effectively a new task.
+     */
+    private function createNextOccurrence(array $assignment): void
+    {
+        $this->insert([
+            'title'       => $assignment['title'],
+            'description' => $assignment['description'],
+            'due_date'    => self::nextDueDate((string) $assignment['due_date'], (string) $assignment['recurrence']),
+            'due_time'    => $assignment['due_time'],
+            'status'      => 'pending',
+            'priority'    => $assignment['priority'],
+            'subject'     => $assignment['subject'],
+            'link_url'    => $assignment['link_url'],
+            'recurrence'  => $assignment['recurrence'],
+        ]);
+    }
+
+    public static function nextDueDate(string $dueDate, string $recurrence): string
+    {
+        if ($recurrence === 'weekly') {
+            return date('Y-m-d', strtotime($dueDate . ' +1 week'));
+        }
+
+        if ($recurrence === 'biweekly') {
+            return date('Y-m-d', strtotime($dueDate . ' +2 weeks'));
+        }
+
+        if ($recurrence === 'monthly') {
+            // Deliberately not strtotime('+1 month') here: PHP overflows
+            // rather than clamping (Jan 31 "+1 month" lands in early March,
+            // not Feb 28). Compute the target month/year directly and clamp
+            // the day to whatever that month actually has.
+            $date  = new DateTimeImmutable($dueDate);
+            $year  = (int) $date->format('Y');
+            $month = (int) $date->format('n') + 1;
+            $day   = (int) $date->format('j');
+
+            if ($month > 12) {
+                $month = 1;
+                $year++;
+            }
+
+            $daysInTargetMonth = (int) (new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
+            $day = min($day, $daysInTargetMonth);
+
+            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+        }
+
+        return $dueDate;
+    }
+
+    public static function normalizeRecurrence(?string $recurrence): ?string
+    {
+        return in_array($recurrence, self::RECURRENCES, true) ? $recurrence : null;
     }
 
     /**
@@ -98,6 +173,38 @@ class AssignmentModel extends Model
     }
 
     /**
+     * Append a timestamped line to an assignment's running notes log.
+     */
+    public function addNote(int $id, string $note): bool
+    {
+        $assignment = $this->find($id);
+
+        if (! $assignment) {
+            return false;
+        }
+
+        $line     = '[' . date('M j, g:i A') . '] ' . $note;
+        $existing = $assignment['notes_log'] ?? '';
+        $updated  = $existing !== '' && $existing !== null ? $existing . "\n" . $line : $line;
+
+        return $this->update($id, ['notes_log' => $updated]);
+    }
+
+    /**
+     * Persist a manual drag-and-drop order: $ids is the full list of
+     * assignment ids in their new top-to-bottom order.
+     */
+    public function saveOrder(array $ids): void
+    {
+        foreach (array_values($ids) as $index => $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $this->update($id, ['sort_order' => $index]);
+            }
+        }
+    }
+
+    /**
      * Normalize a submitted priority value to one of the allowed options.
      */
     public static function normalizePriority(?string $priority): string
@@ -115,7 +222,11 @@ class AssignmentModel extends Model
     }
 
     /**
-     * True if a pending assignment's due date has passed.
+     * True if a pending assignment's due date (and due time, if set) has
+     * passed. Assignments with no due_time default to end-of-day (23:59),
+     * so a date-only assignment behaves exactly as before — safe all day,
+     * overdue starting the next calendar day. Setting an explicit time
+     * enables same-day overdue detection.
      */
     public static function isOverdue(array $assignment): bool
     {
@@ -123,7 +234,9 @@ class AssignmentModel extends Model
             return false;
         }
 
-        return strtotime((string) $assignment['due_date']) < strtotime(date('Y-m-d'));
+        $time = ! empty($assignment['due_time']) ? $assignment['due_time'] : '23:59';
+
+        return strtotime($assignment['due_date'] . ' ' . $time) < time();
     }
 
     /**
@@ -138,8 +251,8 @@ class AssignmentModel extends Model
 
     /**
      * Pending assignments due within the next $daysAhead days, or already
-     * overdue. Used to power the site-wide "due soon" banner shown on
-     * every page.
+     * overdue. Powers the site-wide "due soon" banner (daysAhead=2) and
+     * the weekly planning digest (daysAhead=7).
      */
     public function getUrgent(int $daysAhead = 2): array
     {
@@ -186,9 +299,12 @@ class AssignmentModel extends Model
     }
 
     /**
-     * Human, urgency-aware due-date text: "Due today", "Due in 3 days",
-     * "2 days overdue"... Done items just get a plain "Due <date>" since
-     * urgency no longer applies. Returns null when there's no due date.
+     * Human, urgency-aware due-date text: "Due today, 11:59 PM", "Due in
+     * 3 days", "2 days overdue"... Done items just get a plain
+     * "Due <date>" since urgency no longer applies. The due_time suffix is
+     * only appended for today/tomorrow/future — once something's overdue
+     * by whole days, the exact time it was due stops being useful.
+     * Returns null when there's no due date.
      */
     public static function relativeDueDate(array $assignment): ?string
     {
@@ -196,7 +312,11 @@ class AssignmentModel extends Model
             return null;
         }
 
-        $formatted = date('M j, Y', strtotime((string) $assignment['due_date']));
+        $timeSuffix = ! empty($assignment['due_time'])
+            ? ', ' . date('g:i A', strtotime($assignment['due_time']))
+            : '';
+
+        $formatted = date('M j, Y', strtotime((string) $assignment['due_date'])) . $timeSuffix;
 
         if ($assignment['status'] === 'done') {
             return "Due {$formatted}";
@@ -207,9 +327,9 @@ class AssignmentModel extends Model
         $diff  = (int) $today->diff($due)->format('%r%a');
 
         return match (true) {
-            $diff === 0  => 'Due today',
-            $diff === 1  => 'Due tomorrow',
-            $diff > 1    => "Due in {$diff} days",
+            $diff === 0  => 'Due today' . $timeSuffix,
+            $diff === 1  => 'Due tomorrow' . $timeSuffix,
+            $diff > 1    => "Due in {$diff} days" . $timeSuffix,
             $diff === -1 => 'Due yesterday',
             default      => abs($diff) . ' days overdue',
         };

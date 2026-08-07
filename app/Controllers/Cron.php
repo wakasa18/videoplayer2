@@ -51,6 +51,51 @@ class Cron extends BaseController
     }
 
     /**
+     * Hit on a schedule (see vercel.json "crons", second entry). A
+     * broader planning-ahead email — everything pending due in the next
+     * 7 days, or already overdue — sent once a week regardless of what
+     * the daily urgent reminders above have already covered. Completely
+     * independent of reminder_sent_at; the two email types don't
+     * interact with each other.
+     */
+    public function weeklyDigest(): ResponseInterface
+    {
+        if (! $this->cronSecretIsValid()) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+
+        return $this->response->setJSON($this->runWeeklyDigest());
+    }
+
+    /**
+     * Manual trigger for testing, e.g.
+     * /cron/weekly-digest/test?secret=yourvalue
+     */
+    public function weeklyDigestTest(): ResponseInterface
+    {
+        if (! $this->cronSecretIsValid()) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized. Add ?secret=your_cron_secret to the URL.']);
+        }
+
+        $result         = $this->runWeeklyDigest();
+        $result['note'] = "Weekly planning digest — separate from the urgent daily reminders, doesn't mark anything as notified.";
+
+        return $this->response->setJSON($result);
+    }
+
+    private function runWeeklyDigest(): array
+    {
+        $model    = new AssignmentModel();
+        $upcoming = $model->getUrgent(7);
+
+        if ($upcoming === []) {
+            return ['checked' => 0, 'sent' => false];
+        }
+
+        return ['checked' => count($upcoming), 'sent' => $this->sendWeeklyDigestEmail($upcoming)];
+    }
+
+    /**
      * Shared logic behind both entry points: find what's due, email it as
      * one digest, and mark everything notified only if the send actually
      * succeeded (so a failed send gets retried next time instead of
@@ -119,18 +164,10 @@ class Cron extends BaseController
     }
 
     /**
-     * Send one email covering every urgent assignment passed in.
+     * Build and configure the mailer once, shared by both email types.
      */
-    private function sendDigestEmail(array $assignments): bool
+    private function initializedMailer(): \CodeIgniter\Email\Email
     {
-        $to   = getenv('EMAIL_TO');
-        $from = getenv('EMAIL_FROM') ?: $to;
-
-        if (! $to) {
-            log_message('error', 'Cron: EMAIL_TO is not set, cannot send assignment reminders.');
-            return false;
-        }
-
         $email = Services::email();
 
         $email->initialize([
@@ -144,6 +181,24 @@ class Cron extends BaseController
             'charset'    => 'utf-8',
             'newline'    => "\r\n",
         ]);
+
+        return $email;
+    }
+
+    /**
+     * Send one email covering every urgent assignment passed in.
+     */
+    private function sendDigestEmail(array $assignments): bool
+    {
+        $to   = getenv('EMAIL_TO');
+        $from = getenv('EMAIL_FROM') ?: $to;
+
+        if (! $to) {
+            log_message('error', 'Cron: EMAIL_TO is not set, cannot send assignment reminders.');
+            return false;
+        }
+
+        $email = $this->initializedMailer();
 
         $count        = count($assignments);
         $overdueCount = AssignmentModel::countOverdue($assignments);
@@ -169,6 +224,37 @@ class Cron extends BaseController
 
         if (! $sent) {
             log_message('error', 'Cron: failed to send reminder digest — ' . $email->printDebugger(['headers']));
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Send the once-a-week planning digest covering everything due in the
+     * next 7 days.
+     */
+    private function sendWeeklyDigestEmail(array $assignments): bool
+    {
+        $to   = getenv('EMAIL_TO');
+        $from = getenv('EMAIL_FROM') ?: $to;
+
+        if (! $to) {
+            log_message('error', 'Cron: EMAIL_TO is not set, cannot send the weekly digest.');
+            return false;
+        }
+
+        $email = $this->initializedMailer();
+        $count = count($assignments);
+
+        $email->setFrom($from, "Damon's Archive");
+        $email->setTo($to);
+        $email->setSubject('Your week ahead: ' . $count . ' assignment' . ($count === 1 ? '' : 's'));
+        $email->setMessage($this->buildWeeklyDigestEmailBody($assignments));
+
+        $sent = $email->send();
+
+        if (! $sent) {
+            log_message('error', 'Cron: failed to send weekly digest — ' . $email->printDebugger(['headers']));
         }
 
         return $sent;
@@ -255,6 +341,11 @@ class Cron extends BaseController
             $subjectHtml = ' <span style="display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; padding:2px 9px; border-radius:20px; border:1px solid rgba(' . $rgb . ',.55); color:rgb(' . $rgb . '); background:rgba(' . $rgb . ',.08);">' . esc($a['subject']) . '</span>';
         }
 
+        $linkHtml = '';
+        if (! empty($a['link_url'])) {
+            $linkHtml = ' &middot; <a href="' . esc($a['link_url'], 'attr') . '" style="color:#5FD9E8; text-decoration:none;">Open link &rarr;</a>';
+        }
+
         $descHtml = '';
         if (! empty($a['description'])) {
             $descHtml = '<div style="font-size:13px; color:#6b7085; margin-top:6px; line-height:1.55;">' . nl2br(esc($a['description'])) . '</div>';
@@ -267,7 +358,57 @@ class Cron extends BaseController
         return '
       <div style="border-left:4px solid ' . $borderColor . '; background:#f9fafc; border-radius:6px; padding:14px 16px; margin-bottom:12px;">
         <div style="font-size:15px; font-weight:600; color:#1B1430;">' . esc($a['title']) . $subjectHtml . '</div>
-        <div style="margin-top:7px;">' . $overdueBadge . '<span style="font-size:13px; color:' . $dueColor . '; font-weight:' . $dueWeight . ';">' . esc($dueText) . '</span></div>' . $descHtml . '
+        <div style="margin-top:7px;">' . $overdueBadge . '<span style="font-size:13px; color:' . $dueColor . '; font-weight:' . $dueWeight . ';">' . esc($dueText) . '</span>' . $linkHtml . '</div>' . $descHtml . '
       </div>';
+    }
+
+    /**
+     * Same branded card layout as the urgent digest, just under a
+     * planning-oriented header (cyan instead of gold) so the two email
+     * types read as visually distinct at a glance.
+     */
+    private function buildWeeklyDigestEmailBody(array $assignments): string
+    {
+        $siteUrl      = rtrim(base_url('assignments'), '/');
+        $count        = count($assignments);
+        $overdueCount = AssignmentModel::countOverdue($assignments);
+
+        $intro = "Here's what's on deck for the week ahead ({$count} assignment" . ($count === 1 ? '' : 's') . '):';
+        if ($overdueCount > 0) {
+            $intro .= ' ' . $overdueCount . ' of these ' . ($overdueCount === 1 ? 'is' : 'are') . ' already overdue.';
+        }
+
+        $cards = '';
+        foreach ($assignments as $a) {
+            $cards .= $this->buildAssignmentCard($a);
+        }
+
+        return '
+<div style="background:#f4f5f9; padding:32px 16px; font-family:-apple-system,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e4e7f0;">
+
+    <div style="background:#0d1224; padding:22px 28px;">
+      <div style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#5FD9E8; font-weight:600; font-family:Menlo,Consolas,monospace;">Damon&rsquo;s Archive</div>
+      <div style="font-size:20px; color:#ffffff; margin-top:6px; font-weight:600; font-family:Georgia,serif; font-style:italic;">Weekly Planning &middot; Sector 22</div>
+    </div>
+
+    <div style="padding:26px 28px 6px;">
+      <p style="margin:0; font-size:15px; color:#2c2c38; line-height:1.5;">' . esc($intro) . '</p>
+    </div>
+
+    <div style="padding:14px 28px 6px;">' . $cards . '</div>
+
+    <div style="padding:10px 28px 28px;">
+      <a href="' . esc($siteUrl, 'attr') . '" style="display:inline-block; background:#5FD9E8; color:#0d1224; font-weight:700; text-decoration:none; padding:12px 26px; border-radius:6px; font-size:14px;">View in your Archive &rarr;</a>
+    </div>
+
+    <div style="padding:16px 28px; background:#f4f5f9; border-top:1px solid #e4e7f0;">
+      <p style="margin:0; font-size:11px; color:#9096a8; line-height:1.6;">
+        Your weekly planning digest &mdash; separate from the urgent daily reminders, sent once a week regardless of what those have already covered.
+      </p>
+    </div>
+
+  </div>
+</div>';
     }
 }

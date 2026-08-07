@@ -50,32 +50,61 @@ class Assignments extends BaseController
     }
 
     /**
-     * Log a new assignment.
+     * Pull the common set of fields this controller accepts from a
+     * store/update POST, normalizing/trimming each one. Shared by store()
+     * and update() so both handle new fields identically.
      */
-    public function store(): RedirectResponse
+    private function fieldsFromRequest(): array
     {
         $title       = trim((string) $this->request->getPost('title'));
         $description = trim((string) $this->request->getPost('description'));
         $dueDate     = trim((string) $this->request->getPost('due_date'));
+        $dueTime     = trim((string) $this->request->getPost('due_time'));
         $subject     = trim((string) $this->request->getPost('subject'));
+        $linkUrl     = trim((string) $this->request->getPost('link_url'));
         $priority    = AssignmentModel::normalizePriority($this->request->getPost('priority'));
+        $recurrence  = AssignmentModel::normalizeRecurrence($this->request->getPost('recurrence'));
 
-        if ($title === '') {
-            return redirect()->to('/assignments')->with('error', 'Give the assignment a title first.');
+        // A due_time without a due_date doesn't mean anything.
+        if ($dueDate === '') {
+            $dueTime = '';
         }
 
-        if (mb_strlen($title) > 255) {
-            return redirect()->to('/assignments')->with('error', 'That title is too long.');
+        // Quietly add a scheme so "example.com/portal" still works as a link.
+        if ($linkUrl !== '' && ! preg_match('#^https?://#i', $linkUrl)) {
+            $linkUrl = 'https://' . $linkUrl;
         }
 
-        $this->assignmentModel->insert([
+        return [
             'title'       => $title,
             'description' => $description !== '' ? $description : null,
             'due_date'    => $dueDate !== '' ? $dueDate : null,
+            'due_time'    => $dueTime !== '' ? $dueTime : null,
             'subject'     => $subject !== '' ? $subject : null,
+            'link_url'    => $linkUrl !== '' ? $linkUrl : null,
             'priority'    => $priority,
-            'status'      => 'pending',
-        ]);
+            'recurrence'  => $recurrence,
+        ];
+    }
+
+    /**
+     * Log a new assignment.
+     */
+    public function store(): RedirectResponse
+    {
+        $fields = $this->fieldsFromRequest();
+
+        if ($fields['title'] === '') {
+            return redirect()->to('/assignments')->with('error', 'Give the assignment a title first.');
+        }
+
+        if (mb_strlen($fields['title']) > 255) {
+            return redirect()->to('/assignments')->with('error', 'That title is too long.');
+        }
+
+        $fields['status'] = 'pending';
+
+        $this->assignmentModel->insert($fields);
 
         return redirect()->to('/assignments')->with('success', 'Assignment added to the queue.');
     }
@@ -91,41 +120,31 @@ class Assignments extends BaseController
             return redirect()->to('/assignments')->with('error', 'Assignment not found.');
         }
 
-        $title       = trim((string) $this->request->getPost('title'));
-        $description = trim((string) $this->request->getPost('description'));
-        $dueDate     = trim((string) $this->request->getPost('due_date'));
-        $subject     = trim((string) $this->request->getPost('subject'));
-        $priority    = AssignmentModel::normalizePriority($this->request->getPost('priority'));
+        $fields = $this->fieldsFromRequest();
 
-        if ($title === '') {
+        if ($fields['title'] === '') {
             return redirect()->to('/assignments')->with('error', 'Give the assignment a title first.');
         }
 
-        if (mb_strlen($title) > 255) {
+        if (mb_strlen($fields['title']) > 255) {
             return redirect()->to('/assignments')->with('error', 'That title is too long.');
         }
 
-        $updateData = [
-            'title'       => $title,
-            'description' => $description !== '' ? $description : null,
-            'due_date'    => $dueDate !== '' ? $dueDate : null,
-            'subject'     => $subject !== '' ? $subject : null,
-            'priority'    => $priority,
-        ];
-
         // If the due date changed, this assignment should be eligible for a
         // fresh reminder rather than staying silenced by an old one.
-        if ($updateData['due_date'] !== $assignment['due_date']) {
-            $updateData['reminder_sent_at'] = null;
+        if ($fields['due_date'] !== $assignment['due_date']) {
+            $fields['reminder_sent_at'] = null;
         }
 
-        $this->assignmentModel->update($id, $updateData);
+        $this->assignmentModel->update($id, $fields);
 
         return redirect()->to('/assignments')->with('success', 'Assignment updated.');
     }
 
     /**
-     * Flip an assignment between pending and done.
+     * Flip an assignment between pending and done. Completing a recurring
+     * assignment spins off its next occurrence automatically (see
+     * AssignmentModel::toggleStatus()).
      */
     public function toggle(int $id): RedirectResponse
     {
@@ -165,6 +184,35 @@ class Assignments extends BaseController
     }
 
     /**
+     * Add a timestamped line to an assignment's notes log.
+     */
+    public function addNote(int $id): RedirectResponse
+    {
+        $note = trim((string) $this->request->getPost('note'));
+
+        if ($note === '') {
+            return redirect()->to('/assignments')->with('error', 'Write something before adding a note.');
+        }
+
+        if (! $this->assignmentModel->addNote($id, mb_substr($note, 0, 500))) {
+            return redirect()->to('/assignments')->with('error', 'Assignment not found.');
+        }
+
+        return redirect()->to('/assignments')->with('success', 'Note added.');
+    }
+
+    /**
+     * Persist a drag-and-drop reorder from the "Manual" sort mode.
+     */
+    public function reorder(): ResponseInterface
+    {
+        $ids = explode(',', (string) $this->request->getPost('ids'));
+        $this->assignmentModel->saveOrder($ids);
+
+        return $this->response->setJSON(['ok' => true]);
+    }
+
+    /**
      * Download everything currently in the queue (pending + done, not
      * soft-deleted) as a single JSON file — the only backup this data has
      * outside Supabase itself.
@@ -180,9 +228,13 @@ class Assignments extends BaseController
             'title'       => $a['title'],
             'description' => $a['description'],
             'due_date'    => $a['due_date'],
+            'due_time'    => $a['due_time'],
             'status'      => $a['status'],
             'priority'    => $a['priority'],
             'subject'     => $a['subject'],
+            'link_url'    => $a['link_url'],
+            'recurrence'  => $a['recurrence'],
+            'notes_log'   => $a['notes_log'],
             'created_at'  => $a['created_at'],
             'updated_at'  => $a['updated_at'],
         ], $assignments);
@@ -305,7 +357,10 @@ class Assignments extends BaseController
                 'title'       => mb_substr(trim($row['title']), 0, 255),
                 'description' => ! empty($row['description']) ? (string) $row['description'] : null,
                 'due_date'    => ! empty($row['due_date']) ? (string) $row['due_date'] : null,
+                'due_time'    => ! empty($row['due_time']) ? (string) $row['due_time'] : null,
                 'subject'     => ! empty($row['subject']) ? mb_substr((string) $row['subject'], 0, 100) : null,
+                'link_url'    => ! empty($row['link_url']) ? mb_substr((string) $row['link_url'], 0, 500) : null,
+                'recurrence'  => AssignmentModel::normalizeRecurrence($row['recurrence'] ?? null),
                 'priority'    => AssignmentModel::normalizePriority($row['priority'] ?? null),
                 'status'      => $status,
             ]);
