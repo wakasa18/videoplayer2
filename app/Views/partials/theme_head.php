@@ -331,6 +331,7 @@
   .portal-grid .portal-card:nth-child(1){ animation-delay:.25s; }
   .portal-grid .portal-card:nth-child(2){ animation-delay:.35s; }
   .portal-grid .portal-card:nth-child(3){ animation-delay:.45s; }
+  .portal-grid .portal-card:nth-child(4){ animation-delay:.55s; }
   .portal-card:hover{ border-color:#2c3a68; box-shadow:0 14px 34px rgba(0,0,0,.32); transform:translateY(-4px); }
   .portal-card:hover .portal-icon{ transform:scale(1.08) rotate(-4deg); color:var(--cyan); border-color:rgba(95,217,232,.4); }
   .portal-icon{

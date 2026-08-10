@@ -14,6 +14,16 @@ $routes->post('videos/(:num)/delete', 'Video::destroy/$1');
 // Pictures (placeholder)
 $routes->get('pictures', 'Pictures::index');
 
+// Important Files (password-gated)
+$routes->get('files', 'Files::index');
+$routes->get('files/gate', 'Files::gate');
+$routes->post('files/unlock', 'Files::unlock');
+$routes->post('files/lock', 'Files::lock');
+$routes->post('files/sign-upload', 'Files::signUpload');
+$routes->post('files/store', 'Files::store');
+$routes->get('files/(:num)/download', 'Files::download/$1');
+$routes->post('files/(:num)/delete', 'Files::destroy/$1');
+
 // Others hub + its placeholder sections
 $routes->get('others', 'Others::index');
 $routes->get('notes', 'Notes::index');

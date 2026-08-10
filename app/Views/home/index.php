@@ -25,7 +25,7 @@
 
   <p class="home-sub">Pick a section to open its log. New sectors get added here as they come online.</p>
 
-  <div class="portal-grid">
+  <div class="portal-grid cols-2">
 
     <a href="<?= base_url('videos') ?>" class="portal-card">
       <span class="corner tl"></span><span class="corner tr"></span>
@@ -57,6 +57,18 @@
       <div class="portal-icon">&#9776;</div>
       <h2 class="portal-title">Others</h2>
       <p class="portal-desc">Notes, assignments, and anything else that doesn't fit elsewhere.</p>
+      <div class="portal-foot">
+        <span class="badge live"><span class="dot"></span>Live</span>
+        <span class="portal-arrow">Enter &rarr;</span>
+      </div>
+    </a>
+
+    <a href="<?= base_url('files') ?>" class="portal-card">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="portal-icon">&#128274;</div>
+      <h2 class="portal-title">Important Files</h2>
+      <p class="portal-desc">A password-locked vault for documents that matter — IDs, certificates, anything worth keeping close.</p>
       <div class="portal-foot">
         <span class="badge live"><span class="dot"></span>Live</span>
         <span class="portal-arrow">Enter &rarr;</span>

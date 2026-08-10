@@ -20,14 +20,21 @@ class SupabaseStorage
     protected string $serviceKey;
     protected string $bucket;
 
-    public function __construct()
+    /**
+     * @param string|null $bucketOverride Pass a bucket name to use instead
+     *                                    of the configured default — e.g.
+     *                                    the private "important files"
+     *                                    bucket instead of the public
+     *                                    videos one.
+     */
+    public function __construct(?string $bucketOverride = null)
     {
         /** @var SupabaseConfig $config */
         $config = config(SupabaseConfig::class);
 
         $this->baseUrl    = rtrim($config->url, '/');
         $this->serviceKey = $config->serviceKey;
-        $this->bucket     = $config->bucket;
+        $this->bucket     = $bucketOverride ?? $config->bucket;
 
         if ($this->baseUrl === '' || $this->serviceKey === '') {
             throw new RuntimeException(
@@ -145,6 +152,46 @@ class SupabaseStorage
             'uploadUrl' => $this->baseUrl . '/storage/v1' . $decoded['url'],
             'publicUrl' => $this->publicUrl($remotePath),
         ];
+    }
+
+    /**
+     * Create a short-lived signed URL for *reading* an object out of a
+     * private bucket. Unlike publicUrl(), this works even when the bucket
+     * itself isn't marked public — the URL only stays valid for
+     * $expiresInSeconds, after which it 403s. Used for the Important
+     * Files section, which is deliberately kept private (unlike the
+     * Videos bucket, which is public so the <video> tag can stream from
+     * it directly).
+     */
+    public function createSignedDownloadUrl(string $remotePath, int $expiresInSeconds = 120): string
+    {
+        $url = sprintf(
+            '%s/storage/v1/object/sign/%s/%s',
+            $this->baseUrl,
+            $this->bucket,
+            ltrim($remotePath, '/')
+        );
+
+        [$status, $response, $error] = $this->request('POST', $url, json_encode(['expiresIn' => $expiresInSeconds]), [
+            'Content-Type: application/json',
+        ]);
+
+        if ($error !== '') {
+            throw new RuntimeException("Supabase signed download URL request failed: {$error}");
+        }
+
+        if ($status < 200 || $status >= 300) {
+            throw new RuntimeException("Supabase signed download URL request failed with status {$status}: {$response}");
+        }
+
+        $decoded = json_decode($response, true);
+
+        if (! is_array($decoded) || ! isset($decoded['signedURL'])) {
+            throw new RuntimeException('Supabase signed download URL response was missing the expected "signedURL" field.');
+        }
+
+        // $decoded['signedURL'] is a path like "/object/sign/files/xxx.pdf?token=...".
+        return $this->baseUrl . '/storage/v1' . $decoded['signedURL'];
     }
 
     /**

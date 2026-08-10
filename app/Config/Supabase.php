@@ -27,12 +27,23 @@ class Supabase extends BaseConfig
      */
     public string $bucket;
 
+    /**
+     * The Storage bucket Important Files get uploaded into. Unlike the
+     * videos bucket, this one must be marked *private* in the Supabase
+     * dashboard — files are only ever reached through short-lived signed
+     * URLs generated on demand, never a permanent public link.
+     * Set via the SUPABASE_FILES_BUCKET environment variable (defaults to
+     * "important-files").
+     */
+    public string $filesBucket;
+
     public function __construct()
     {
         parent::__construct();
 
-        $this->url        = (string) (getenv('SUPABASE_URL') ?: '');
-        $this->serviceKey = (string) (getenv('SUPABASE_SERVICE_KEY') ?: '');
-        $this->bucket     = (string) (getenv('SUPABASE_BUCKET') ?: 'videos');
+        $this->url         = (string) (getenv('SUPABASE_URL') ?: '');
+        $this->serviceKey  = (string) (getenv('SUPABASE_SERVICE_KEY') ?: '');
+        $this->bucket      = (string) (getenv('SUPABASE_BUCKET') ?: 'videos');
+        $this->filesBucket = (string) (getenv('SUPABASE_FILES_BUCKET') ?: 'important-files');
     }
 }
