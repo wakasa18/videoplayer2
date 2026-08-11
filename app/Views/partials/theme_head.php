@@ -300,22 +300,53 @@
   /* -- utility -- */
   .hidden{ display:none !important; }
 
-  /* -- site-wide deadline banner -- */
-  .deadline-banner{
-    display:flex; align-items:center; gap:8px;
-    background:rgba(229,99,107,.10); border:1px solid rgba(229,99,107,.35);
-    color:#F7CDD0; text-decoration:none;
-    font-family:'JetBrains Mono', Menlo, monospace; font-size:12px; letter-spacing:.03em;
-    padding:9px 14px; border-radius:8px; margin-bottom:18px;
-    opacity:0; animation:fadeInUp .5s ease forwards;
-    transition: border-color .15s ease, background .15s ease, transform .15s ease;
+  /* -- site-wide notification bell + expandable panel -- */
+  .notif-bell-wrap{ position:fixed; top:18px; right:20px; z-index:50; }
+  @media (max-width:600px){ .notif-bell-wrap{ top:12px; right:14px; } }
+  .notif-bell{
+    width:38px; height:38px; border-radius:50%; position:relative;
+    background:var(--surface); border:1px solid var(--hairline);
+    display:flex; align-items:center; justify-content:center; padding:0;
+    opacity:0; animation:fadeInUp .5s ease .15s forwards;
+    transition: border-color .15s ease, transform .15s ease, background .15s ease;
   }
-  .deadline-banner:hover{ background:rgba(229,99,107,.16); transform:translateY(-1px); }
-  .deadline-banner-dot{
-    width:6px; height:6px; border-radius:50%; background:var(--red); flex:none;
-    animation:liveDot 1.2s ease-in-out infinite;
+  .notif-bell:hover{ border-color:rgba(229,99,107,.5); background:rgba(229,99,107,.08); transform:scale(1.06); }
+  .notif-bell-icon{ font-size:16px; line-height:1; filter:grayscale(1) brightness(1.3); }
+  .notif-bell-badge{
+    position:absolute; top:-4px; right:-4px; min-width:17px; height:17px; padding:0 4px;
+    border-radius:20px; background:var(--red); color:#fff;
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 0 2px var(--bg);
+    animation:liveDot 1.6s ease-in-out infinite;
   }
-  .deadline-banner-arrow{ margin-left:auto; }
+  .notif-panel{
+    position:absolute; top:48px; right:0; width:min(320px, 82vw);
+    background:var(--surface); border:1px solid var(--hairline); border-radius:10px;
+    box-shadow:0 16px 40px rgba(0,0,0,.45);
+    padding:14px; opacity:1;
+    animation:fadeInUp .2s ease both;
+  }
+  .notif-panel.hidden{ display:none; }
+  .notif-panel-head{
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:#F7CDD0; margin:0 0 10px; padding-bottom:10px; border-bottom:1px solid var(--hairline);
+  }
+  .notif-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; max-height:220px; overflow-y:auto; }
+  .notif-item{ display:flex; align-items:center; gap:8px; }
+  .notif-dot{ width:6px; height:6px; border-radius:50%; background:var(--gold); flex:none; }
+  .notif-item.overdue .notif-dot{ background:var(--red); }
+  .notif-item-title{
+    flex:1; min-width:0; font-size:13px; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .notif-item-due{ font-family:'JetBrains Mono', Menlo, monospace; font-size:10px; color:var(--text-dim); flex:none; }
+  .notif-item.overdue .notif-item-due{ color:#F7CDD0; }
+  .notif-view-all{
+    display:block; text-align:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--hairline);
+    font-family:'JetBrains Mono', Menlo, monospace; font-size:11px; color:var(--cyan); text-decoration:none;
+  }
+  .notif-view-all:hover{ text-decoration:underline; }
 
   /* -- portal cards, used on the home hub and any sub-hub -- */
   .portal-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-top:28px; }
