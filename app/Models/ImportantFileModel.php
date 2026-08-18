@@ -197,6 +197,58 @@ class ImportantFileModel extends Model
         return array_values($folders);
     }
 
+    /**
+     * Return every active file inside a folder and all of its descendants.
+     * A null path represents the root and therefore returns the whole vault.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getFolderTreeFiles(?string $folderPath, int $limit = 2001): array
+    {
+        $this->select([
+            'id',
+            'folder_path',
+            'original_filename',
+            'file_path',
+            'file_size',
+            'mime_type',
+            'created_at',
+            'updated_at',
+        ])->where('status', 'active');
+
+        if ($folderPath !== null && $folderPath !== '') {
+            $this->groupStart()
+                ->where('folder_path', $folderPath)
+                ->orLike('folder_path', rtrim($folderPath, '/') . '/', 'after')
+                ->groupEnd();
+        }
+
+        return $this->orderBy('folder_path', 'ASC')
+            ->orderBy('original_filename', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->findAll(max(1, $limit));
+    }
+
+    /**
+     * Increment download counters after a browser confirms that a generated
+     * folder archive was saved successfully.
+     */
+    public function recordBulkDownload(array $ids): bool
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return false;
+        }
+
+        return (bool) $this->builder()
+            ->whereIn('id', $ids)
+            ->where('status', 'active')
+            ->set('download_count', 'COALESCE(download_count, 0) + 1', false)
+            ->set('last_downloaded_at', date('Y-m-d H:i:s'))
+            ->set('updated_at', date('Y-m-d H:i:s'))
+            ->update();
+    }
+
     private function applyFileFilters(array $filters): void
     {
         $query = trim((string) ($filters['q'] ?? ''));

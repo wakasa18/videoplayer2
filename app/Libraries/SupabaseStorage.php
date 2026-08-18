@@ -116,6 +116,74 @@ class SupabaseStorage
     }
 
     /**
+     * Create signed URLs for several private objects in one Storage API call.
+     *
+     * @return array<int, array{path:string,signedUrl:?string,error:?string}>
+     */
+    public function createSignedDownloadUrls(array $remotePaths, int $expiresInSeconds = 7200): array
+    {
+        $paths = array_values(array_unique(array_filter(array_map(
+            static fn ($path): string => trim((string) $path),
+            $remotePaths
+        ), static fn (string $path): bool => $path !== '')));
+
+        if ($paths === []) {
+            return [];
+        }
+
+        $url = sprintf(
+            '%s/storage/v1/object/sign/%s',
+            $this->baseUrl,
+            rawurlencode($this->bucket)
+        );
+
+        $body = json_encode([
+            'expiresIn' => max(1, $expiresInSeconds),
+            'paths'     => $paths,
+        ], JSON_UNESCAPED_SLASHES);
+
+        if ($body === false) {
+            throw new RuntimeException('Could not encode the signed URL request.');
+        }
+
+        [$status, $response, $error] = $this->request('POST', $url, $body, ['Content-Type: application/json']);
+        if ($error !== '' || $status < 200 || $status >= 300) {
+            throw new RuntimeException("Supabase batch signed URL request failed with status {$status}: " . ($error ?: $response));
+        }
+
+        $decoded = json_decode($response, true);
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Supabase batch signed URL response was invalid.');
+        }
+
+        $results = [];
+        foreach ($decoded as $index => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $path      = (string) ($item['path'] ?? ($paths[$index] ?? ''));
+            $signedURL = (string) ($item['signedURL'] ?? $item['signedUrl'] ?? '');
+            $message   = trim((string) ($item['error'] ?? ''));
+            $fullUrl   = null;
+
+            if ($signedURL !== '') {
+                $fullUrl = preg_match('~^https?://~i', $signedURL)
+                    ? $signedURL
+                    : $this->baseUrl . '/storage/v1' . $signedURL;
+            }
+
+            $results[] = [
+                'path'      => $path,
+                'signedUrl' => $fullUrl,
+                'error'     => $message !== '' ? $message : null,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
      * Verify that a private object exists and return its stored metadata.
      * A short-lived signed URL is used so no service key leaves the server.
      *

@@ -40,6 +40,22 @@ class Files extends BaseController
         return max(1, min($megabytes, 500)) * 1024 * 1024;
     }
 
+    private function maxFolderDownloadBytes(): int
+    {
+        $megabytes = (int) (getenv('FILES_FOLDER_DOWNLOAD_MAX_MB') ?: 2048);
+
+        // Standard ZIP32 archives are limited to 4 GiB. Keep a safety margin
+        // for headers and for browsers that cannot stream directly to disk.
+        return max(1, min($megabytes, 3800)) * 1024 * 1024;
+    }
+
+    private function maxFolderDownloadFiles(): int
+    {
+        $files = (int) (getenv('FILES_FOLDER_DOWNLOAD_MAX_FILES') ?: 2000);
+
+        return max(1, min($files, 10000));
+    }
+
     private function requireUnlockedJson(): ?ResponseInterface
     {
         if ($this->isUnlocked()) {
@@ -90,7 +106,7 @@ class Files extends BaseController
     public function lock(): RedirectResponse
     {
         $this->audit('vault_locked');
-        session()->remove(['files_unlocked', 'files_pending_uploads']);
+        session()->remove(['files_unlocked', 'files_pending_uploads', 'files_pending_folder_downloads']);
 
         return redirect()->to('/files/gate')->with('success', 'Locked.');
     }
@@ -331,6 +347,169 @@ class Files extends BaseController
         return $this->response->setJSON(['success' => true]);
     }
 
+    public function folderDownloadManifest(): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $payload   = $this->request->getJSON(true) ?: [];
+        $pathValue = $this->cleanFolderPath((string) ($payload['path'] ?? ''));
+        if ($pathValue === false) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'That folder path is invalid.']);
+        }
+        $rootPath = $pathValue ?: null;
+
+        $maxFiles = $this->maxFolderDownloadFiles();
+        $files    = (new ImportantFileModel())->getFolderTreeFiles($rootPath, $maxFiles + 1);
+        if (count($files) > $maxFiles) {
+            return $this->response->setStatusCode(413)->setJSON([
+                'error' => 'This folder contains more than ' . number_format($maxFiles) . ' files. Download a smaller subfolder instead.',
+            ]);
+        }
+        if ($files === []) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'This folder does not contain any downloadable files.']);
+        }
+
+        $requestedBytes = array_sum(array_map(static fn (array $file): int => (int) ($file['file_size'] ?? 0), $files));
+        if ($requestedBytes > $this->maxFolderDownloadBytes()) {
+            return $this->response->setStatusCode(413)->setJSON([
+                'error' => 'This folder is larger than the configured folder-download limit of '
+                    . ImportantFileModel::formatBytes($this->maxFolderDownloadBytes())
+                    . '. Download smaller subfolders instead.',
+            ]);
+        }
+
+        $storage      = new SupabaseStorage($this->filesBucket());
+        $signedByPath = [];
+
+        try {
+            foreach (array_chunk($files, 100) as $chunk) {
+                $paths   = array_values(array_map(static fn (array $file): string => (string) $file['file_path'], $chunk));
+                $results = $storage->createSignedDownloadUrls($paths, 7200);
+
+                foreach ($results as $result) {
+                    if (($result['signedUrl'] ?? null) !== null && ($result['path'] ?? '') !== '') {
+                        $signedByPath[(string) $result['path']] = (string) $result['signedUrl'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            log_message('error', 'Folder signed URL preparation failed: {message}', ['message' => $e->getMessage()]);
+            return $this->response->setStatusCode(502)->setJSON([
+                'error' => 'The folder download could not be prepared. Please try again.',
+            ]);
+        }
+
+        $entries  = [];
+        $used     = [];
+        $fileIds  = [];
+        $total    = 0;
+        $skipped  = 0;
+
+        foreach ($files as $file) {
+            $signedUrl = $signedByPath[(string) $file['file_path']] ?? null;
+            if (! $signedUrl) {
+                $skipped++;
+                continue;
+            }
+
+            $relativeFolder = $this->archiveRelativeFolder(
+                (string) ($file['folder_path'] ?? ''),
+                $rootPath
+            );
+            $archiveFolder = $this->cleanArchiveFolder($relativeFolder);
+            $filename      = $this->cleanArchiveSegment((string) ($file['original_filename'] ?? 'file'));
+            $archivePath   = $this->uniqueArchivePath($archiveFolder, $filename, $used);
+            $size          = max(0, (int) ($file['file_size'] ?? 0));
+
+            $entries[] = [
+                'id'           => (int) $file['id'],
+                'name'         => $archivePath,
+                'size'         => $size,
+                'url'          => $signedUrl,
+                'lastModified' => (string) ($file['updated_at'] ?: $file['created_at'] ?: ''),
+            ];
+            $fileIds[] = (int) $file['id'];
+            $total    += $size;
+        }
+
+        if ($entries === []) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'error' => 'The files are listed in the database, but none are currently available in storage.',
+            ]);
+        }
+
+        $downloadToken = bin2hex(random_bytes(32));
+        $pending        = (array) session()->get('files_pending_folder_downloads');
+        $now            = time();
+        foreach ($pending as $token => $download) {
+            if ((int) ($download['expires'] ?? 0) < $now) {
+                unset($pending[$token]);
+            }
+        }
+        $pending[$downloadToken] = [
+            'ids'        => $fileIds,
+            'path'       => $rootPath,
+            'file_count' => count($entries),
+            'bytes'      => $total,
+            'expires'    => $now + 7200,
+        ];
+        session()->set('files_pending_folder_downloads', $pending);
+
+        $this->audit('folder_download_prepared', null, [
+            'path'       => $rootPath ?: 'My Drive',
+            'file_count' => count($entries),
+            'bytes'      => $total,
+            'skipped'    => $skipped,
+        ]);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('Pragma', 'no-cache')
+            ->setJSON([
+                'archiveName'  => $this->folderArchiveName($rootPath),
+                'files'        => $entries,
+                'fileCount'    => count($entries),
+                'totalBytes'   => $total,
+                'skippedCount' => $skipped,
+                'downloadToken'=> $downloadToken,
+            ]);
+    }
+
+    public function folderDownloadComplete(): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $payload = $this->request->getJSON(true) ?: [];
+        $token   = trim((string) ($payload['downloadToken'] ?? ''));
+        if (! preg_match('/^[a-f0-9]{64}$/', $token)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Invalid folder download token.']);
+        }
+
+        $pending = (array) session()->get('files_pending_folder_downloads');
+        $download = $pending[$token] ?? null;
+        unset($pending[$token]);
+        session()->set('files_pending_folder_downloads', $pending);
+
+        if (! is_array($download) || (int) ($download['expires'] ?? 0) < time()) {
+            return $this->response->setStatusCode(409)->setJSON(['error' => 'This folder download session has expired.']);
+        }
+
+        $this->fileModel->recordBulkDownload((array) ($download['ids'] ?? []));
+        $this->audit('folder_downloaded', null, [
+            'path'       => $download['path'] ?: 'My Drive',
+            'file_count' => (int) ($download['file_count'] ?? 0),
+            'bytes'      => (int) ($download['bytes'] ?? 0),
+        ]);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON(['success' => true]);
+    }
+
     public function preview(int $id): ResponseInterface
     {
         if (! $this->isUnlocked()) {
@@ -548,6 +727,91 @@ class Files extends BaseController
         $this->fileModel->delete($id, true);
 
         return redirect()->to('/files/recycle')->with('success', 'File permanently deleted.');
+    }
+
+    private function folderArchiveName(?string $rootPath): string
+    {
+        $name = $rootPath ? basename(str_replace('\\', '/', $rootPath)) : 'Important Files';
+        $name = $this->cleanArchiveSegment($name);
+
+        return str_ends_with(strtolower($name), '.zip') ? $name : $name . '.zip';
+    }
+
+    private function archiveRelativeFolder(string $fileFolder, ?string $rootPath): string
+    {
+        $fileFolder = trim(str_replace('\\', '/', $fileFolder), '/');
+        if ($rootPath === null || $rootPath === '') {
+            return $fileFolder;
+        }
+
+        $rootPath = trim(str_replace('\\', '/', $rootPath), '/');
+        if ($fileFolder === $rootPath) {
+            return '';
+        }
+
+        $prefix = $rootPath . '/';
+
+        return str_starts_with($fileFolder, $prefix) ? substr($fileFolder, strlen($prefix)) : '';
+    }
+
+    private function cleanArchiveFolder(string $folder): string
+    {
+        $segments = [];
+        foreach (explode('/', str_replace('\\', '/', $folder)) as $segment) {
+            $segment = trim($segment);
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                continue;
+            }
+            $segments[] = $this->cleanArchiveSegment($segment);
+        }
+
+        return implode('/', $segments);
+    }
+
+    private function cleanArchiveSegment(string $value): string
+    {
+        $value = preg_replace('/[\x00-\x1F\x7F<>:"\\\\|?*]/u', '_', $value) ?? '';
+        $value = trim($value, " .\t\n\r\0\x0B");
+        if ($value === '') {
+            $value = 'unnamed';
+        }
+        if (preg_match('/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i', $value)) {
+            $value = '_' . $value;
+        }
+
+        return mb_substr($value, 0, 180);
+    }
+
+    /**
+     * Keep duplicate original filenames usable by adding " (2)", " (3)",
+     * and so on inside the generated ZIP archive.
+     */
+    private function uniqueArchivePath(string $folder, string $filename, array &$used): string
+    {
+        $directory = $folder !== '' ? trim($folder, '/') . '/' : '';
+        $candidate = $directory . $filename;
+        $key       = mb_strtolower($candidate);
+        if (! isset($used[$key])) {
+            $used[$key] = true;
+
+            return $candidate;
+        }
+
+        $dot       = mb_strrpos($filename, '.');
+        $hasExt    = $dot !== false && $dot > 0;
+        $stem      = $hasExt ? mb_substr($filename, 0, $dot) : $filename;
+        $extension = $hasExt ? mb_substr($filename, $dot) : '';
+        $counter   = 2;
+
+        do {
+            $candidate = $directory . $stem . ' (' . $counter . ')' . $extension;
+            $key       = mb_strtolower($candidate);
+            $counter++;
+        } while (isset($used[$key]));
+
+        $used[$key] = true;
+
+        return $candidate;
     }
 
     private function validateUploadRequest(array $payload): array

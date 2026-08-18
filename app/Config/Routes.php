@@ -24,6 +24,8 @@ $routes->post('files/lock', 'Files::lock');
 $routes->post('files/sign-upload', 'Files::signUpload');
 $routes->post('files/store', 'Files::store');
 $routes->post('files/cancel-upload', 'Files::cancelUpload');
+$routes->post('files/folder-download-manifest', 'Files::folderDownloadManifest');
+$routes->post('files/folder-download-complete', 'Files::folderDownloadComplete');
 $routes->get('files/(:num)/preview', 'Files::preview/$1');
 $routes->get('files/(:num)/download', 'Files::download/$1');
 $routes->post('files/(:num)/update', 'Files::update/$1');
