@@ -2,8 +2,9 @@
 use App\Models\ImportantFileModel;
 
 $typeLabel = ImportantFileModel::typeLabel((string) $file['mime_type'], (string) $file['original_filename']);
-$previewUrl = base_url('share/' . $token . '/preview');
-$downloadUrl = base_url('share/' . $token . '/download');
+$previewUrl = $previewUrl ?? base_url('share/' . $token . '/preview');
+$downloadUrl = $downloadUrl ?? base_url('share/' . $token . '/download');
+$backUrl = $backUrl ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -20,7 +21,7 @@ $downloadUrl = base_url('share/' . $token . '/download');
 <main class="shared-wrap">
   <header class="share-header">
     <div class="share-heading"><p class="eyebrow">Shared from Damon's Archive</p><h1><?= esc($file['title']) ?></h1><div class="share-filename"><?= esc($file['original_filename']) ?></div></div>
-    <div class="share-actions"><a class="share-button secondary" href="<?= esc($previewKind !== 'unsupported' ? $previewUrl : $downloadUrl, 'attr') ?>" target="_blank" rel="noopener">Open tab</a><a class="share-button primary" href="<?= esc($downloadUrl, 'attr') ?>">Download</a></div>
+    <div class="share-actions"><?php if ($backUrl): ?><a class="share-button secondary" href="<?= esc($backUrl, 'attr') ?>">Back to folder</a><?php endif; ?><a class="share-button secondary" href="<?= esc($previewKind !== 'unsupported' ? $previewUrl : $downloadUrl, 'attr') ?>" target="_blank" rel="noopener">Open tab</a><a class="share-button primary" href="<?= esc($downloadUrl, 'attr') ?>">Download</a></div>
   </header>
 
   <section class="share-grid">
@@ -39,7 +40,7 @@ $downloadUrl = base_url('share/' . $token . '/download');
       <?php if (! empty($file['description'])): ?><div class="share-row"><span class="share-label">Description</span><div class="share-value"><?= nl2br(esc($file['description'])) ?></div></div><?php endif; ?>
       <?php if (! empty($share['expires_at'])): ?><div class="share-row"><span class="share-label">Link expires</span><div class="share-value"><?= esc(date('M j, Y · g:i A', strtotime((string) $share['expires_at']))) ?></div></div><?php endif; ?>
       <?php if (! empty($share['max_downloads'])): ?><div class="share-row"><span class="share-label">Downloads</span><div class="share-value"><?= (int) $share['download_count'] ?> of <?= (int) $share['max_downloads'] ?></div></div><?php endif; ?>
-      <div class="share-note">Anyone who has this link can open or download this file until the owner disables the link or it expires.</div>
+      <div class="share-note">Anyone with the share link can open or download this file until the owner disables the link, it expires, or its download limit is reached.</div>
     </aside>
   </section>
 </main>

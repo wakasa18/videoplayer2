@@ -198,6 +198,40 @@ class ImportantFileModel extends Model
     }
 
     /**
+     * Return active files stored directly in one folder.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveFilesInFolder(string $folderPath, int $limit = 500): array
+    {
+        return $this->where('status', 'active')
+            ->where('folder_path', trim($folderPath, '/'))
+            ->orderBy('is_favorite', 'DESC')
+            ->orderBy('title', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->findAll(max(1, min($limit, 2000)));
+    }
+
+    /**
+     * Check whether a folder still contains at least one active file, either
+     * directly or in a descendant folder.
+     */
+    public function folderExists(string $folderPath): bool
+    {
+        $path = trim($folderPath, '/');
+        if ($path === '') {
+            return false;
+        }
+
+        return $this->where('status', 'active')
+            ->groupStart()
+                ->where('folder_path', $path)
+                ->orLike('folder_path', $path . '/', 'after')
+            ->groupEnd()
+            ->countAllResults() > 0;
+    }
+
+    /**
      * Return every active file inside a folder and all of its descendants.
      * A null path represents the root and therefore returns the whole vault.
      *

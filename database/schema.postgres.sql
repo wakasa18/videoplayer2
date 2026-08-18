@@ -101,10 +101,12 @@ CREATE INDEX IF NOT EXISTS ci_sessions_timestamp ON ci_sessions (timestamp);
 -- INSERT INTO videos (title, description, filename, original_filename, file_path, mime_type, file_size, status, created_at, updated_at)
 -- VALUES ('Sample Clip', 'Test upload', 'sample.mp4', 'sample.mp4', 'uploads/videos/sample.mp4', 'video/mp4', 1048576, 'active', NOW(), NOW());
 
--- Public-link metadata for individually shared vault files.
+-- Public-link metadata for individually shared vault files and folders.
 CREATE TABLE IF NOT EXISTS important_file_shares (
   id              BIGSERIAL PRIMARY KEY,
-  file_id         INTEGER NOT NULL REFERENCES important_files(id) ON DELETE CASCADE,
+  share_type      VARCHAR(10) NOT NULL DEFAULT 'file' CHECK (share_type IN ('file', 'folder')),
+  file_id         INTEGER NULL REFERENCES important_files(id) ON DELETE CASCADE,
+  folder_path     VARCHAR(1000) NULL,
   token_hash      CHAR(64) NOT NULL,
   expires_at      TIMESTAMP NULL,
   max_downloads   INTEGER NULL CHECK (max_downloads IS NULL OR max_downloads BETWEEN 1 AND 10000),
@@ -114,12 +116,18 @@ CREATE TABLE IF NOT EXISTS important_file_shares (
   revoked_at      TIMESTAMP NULL,
   created_by      VARCHAR(100) NULL,
   created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT important_file_shares_target_check CHECK (
+    (share_type = 'file' AND file_id IS NOT NULL AND folder_path IS NULL) OR
+    (share_type = 'folder' AND file_id IS NULL AND folder_path IS NOT NULL AND folder_path <> '')
+  )
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_important_file_shares_token_hash ON important_file_shares (token_hash);
 CREATE INDEX IF NOT EXISTS idx_important_file_shares_file_id ON important_file_shares (file_id);
 CREATE INDEX IF NOT EXISTS idx_important_file_shares_expires_at ON important_file_shares (expires_at);
 CREATE INDEX IF NOT EXISTS idx_important_file_shares_active ON important_file_shares (file_id, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_important_file_shares_folder_path ON important_file_shares (folder_path);
+CREATE INDEX IF NOT EXISTS idx_important_file_shares_folder_active ON important_file_shares (share_type, folder_path, revoked_at, expires_at);
 ALTER TABLE important_file_shares ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE important_file_shares FROM anon, authenticated;
 REVOKE ALL ON SEQUENCE important_file_shares_id_seq FROM anon, authenticated;

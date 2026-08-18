@@ -13,7 +13,9 @@ class ImportantFileShareModel extends Model
     protected $useSoftDeletes   = false;
 
     protected $allowedFields = [
+        'share_type',
         'file_id',
+        'folder_path',
         'token_hash',
         'expires_at',
         'max_downloads',
@@ -32,7 +34,9 @@ class ImportantFileShareModel extends Model
     protected $updatedField  = 'updated_at';
 
     protected $validationRules = [
-        'file_id'       => 'required|integer|greater_than[0]',
+        'share_type'    => 'required|in_list[file,folder]',
+        'file_id'       => 'permit_empty|integer|greater_than[0]',
+        'folder_path'   => 'permit_empty|max_length[1000]',
         'token_hash'    => 'required|exact_length[64]|alpha_numeric',
         'max_downloads' => 'permit_empty|integer|greater_than[0]|less_than_equal_to[10000]',
     ];
@@ -40,6 +44,14 @@ class ImportantFileShareModel extends Model
     public function recentForFile(int $fileId): array
     {
         return $this->where('file_id', $fileId)
+            ->orderBy('created_at', 'DESC')
+            ->findAll(25);
+    }
+
+    public function recentForFolder(string $folderPath): array
+    {
+        return $this->where('share_type', 'folder')
+            ->where('folder_path', $folderPath)
             ->orderBy('created_at', 'DESC')
             ->findAll(25);
     }
@@ -113,6 +125,17 @@ class ImportantFileShareModel extends Model
     {
         return (bool) $this->builder()
             ->where('file_id', $fileId)
+            ->where('revoked_at IS NULL', null, false)
+            ->set('revoked_at', date('Y-m-d H:i:s'))
+            ->set('updated_at', date('Y-m-d H:i:s'))
+            ->update();
+    }
+
+    public function revokeForFolder(string $folderPath): bool
+    {
+        return (bool) $this->builder()
+            ->where('share_type', 'folder')
+            ->where('folder_path', $folderPath)
             ->where('revoked_at IS NULL', null, false)
             ->set('revoked_at', date('Y-m-d H:i:s'))
             ->set('updated_at', date('Y-m-d H:i:s'))

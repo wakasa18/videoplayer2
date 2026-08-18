@@ -13,6 +13,10 @@ $routes->post('logout', 'Auth::logout');
 $routes->get('share/(:segment)', 'SharedFiles::show/$1');
 $routes->get('share/(:segment)/preview', 'SharedFiles::preview/$1');
 $routes->get('share/(:segment)/download', 'SharedFiles::download/$1');
+$routes->get('share/(:segment)/file/(:num)', 'SharedFiles::folderFile/$1/$2');
+$routes->get('share/(:segment)/file/(:num)/preview', 'SharedFiles::folderFilePreview/$1/$2');
+$routes->get('share/(:segment)/file/(:num)/download', 'SharedFiles::folderFileDownload/$1/$2');
+$routes->get('share/(:segment)/folder-manifest', 'SharedFiles::folderManifest/$1');
 
 $routes->get('/', 'Home::index');
 
@@ -41,6 +45,8 @@ $routes->get('files/(:num)/preview', 'Files::preview/$1');
 $routes->get('files/(:num)/download', 'Files::download/$1');
 $routes->get('files/(:num)/shares', 'Files::shares/$1');
 $routes->post('files/(:num)/shares', 'Files::createShare/$1');
+$routes->get('files/folder-shares', 'Files::folderShares');
+$routes->post('files/folder-shares', 'Files::createFolderShare');
 $routes->post('files/shares/(:num)/revoke', 'Files::revokeShare/$1');
 $routes->post('files/(:num)/update', 'Files::update/$1');
 $routes->post('files/(:num)/favorite', 'Files::toggleFavorite/$1');

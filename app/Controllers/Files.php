@@ -618,25 +618,10 @@ class Files extends BaseController
         }
 
         $rows = (new ImportantFileShareModel())->recentForFile($id);
-        $shares = array_map(static function (array $share): array {
-            $status = ImportantFileShareModel::status($share);
-
-            return [
-                'id'             => (int) $share['id'],
-                'status'         => $status['key'],
-                'statusLabel'    => $status['label'],
-                'createdAt'      => (string) $share['created_at'],
-                'expiresAt'      => $share['expires_at'] ?: null,
-                'maxDownloads'   => $share['max_downloads'] !== null ? (int) $share['max_downloads'] : null,
-                'downloadCount'  => (int) ($share['download_count'] ?? 0),
-                'viewCount'      => (int) ($share['view_count'] ?? 0),
-                'revokedAt'      => $share['revoked_at'] ?: null,
-            ];
-        }, $rows);
 
         return $this->response
             ->setHeader('Cache-Control', 'private, no-store, max-age=0')
-            ->setJSON(['shares' => $shares]);
+            ->setJSON(['shares' => $this->formatShareRows($rows)]);
     }
 
     public function createShare(int $id): ResponseInterface
@@ -675,7 +660,9 @@ class Files extends BaseController
 
         $shareModel = new ImportantFileShareModel();
         $shareId = $shareModel->insert([
+            'share_type'     => 'file',
             'file_id'        => $id,
+            'folder_path'    => null,
             'token_hash'     => hash('sha256', $rawToken),
             'expires_at'     => $expiresAt,
             'max_downloads'  => $maxDownloads > 0 ? $maxDownloads : null,
@@ -707,6 +694,85 @@ class Files extends BaseController
             ]);
     }
 
+    public function folderShares(): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $path = $this->cleanFolderPath((string) $this->request->getGet('path'));
+        if (! is_string($path) || $path === '') {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Choose a valid folder to share.']);
+        }
+        if (! (new ImportantFileModel())->folderExists($path)) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Folder not found or empty.']);
+        }
+
+        $rows = (new ImportantFileShareModel())->recentForFolder($path);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON(['shares' => $this->formatShareRows($rows)]);
+    }
+
+    public function createFolderShare(): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $payload = $this->request->getJSON(true) ?: [];
+        $path = $this->cleanFolderPath((string) ($payload['path'] ?? ''));
+        if (! is_string($path) || $path === '') {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Choose a valid folder to share.']);
+        }
+        if (! (new ImportantFileModel())->folderExists($path)) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Folder not found or empty.']);
+        }
+
+        $settings = $this->validateShareSettings($payload);
+        if (isset($settings['error'])) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => $settings['error']]);
+        }
+
+        $rawToken  = bin2hex(random_bytes(32));
+        $shareModel = new ImportantFileShareModel();
+        $shareId = $shareModel->insert([
+            'share_type'     => 'folder',
+            'file_id'        => null,
+            'folder_path'    => $path,
+            'token_hash'     => hash('sha256', $rawToken),
+            'expires_at'     => $settings['expiresAt'],
+            'max_downloads'  => $settings['maxDownloads'],
+            'view_count'     => 0,
+            'download_count' => 0,
+            'created_by'     => mb_substr((string) session()->get('site_username'), 0, 100),
+        ], true);
+
+        if (! $shareId) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => implode(' ', $shareModel->errors()) ?: 'The folder share link could not be created.',
+            ]);
+        }
+
+        $this->audit('folder_share_link_created', null, [
+            'share_id'      => (int) $shareId,
+            'folder_path'   => $path,
+            'expires_at'    => $settings['expiresAt'],
+            'max_downloads' => $settings['maxDownloads'],
+        ]);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON([
+                'success'   => true,
+                'shareId'   => (int) $shareId,
+                'shareUrl'  => base_url('share/' . $rawToken),
+                'expiresAt' => $settings['expiresAt'],
+                'message'   => 'Folder share link created. Copy it now; the full private token is not stored.',
+            ]);
+    }
+
     public function revokeShare(int $shareId): ResponseInterface
     {
         if ($response = $this->requireUnlockedJson()) {
@@ -719,9 +785,14 @@ class Files extends BaseController
             return $this->response->setStatusCode(404)->setJSON(['error' => 'Share link not found.']);
         }
 
-        $file = $this->fileModel->find((int) $share['file_id']);
-        if (! $file) {
-            return $this->response->setStatusCode(404)->setJSON(['error' => 'File not found.']);
+        $shareType = (string) ($share['share_type'] ?? 'file');
+        if ($shareType === 'file') {
+            $file = $this->fileModel->find((int) ($share['file_id'] ?? 0));
+            if (! $file) {
+                return $this->response->setStatusCode(404)->setJSON(['error' => 'File not found.']);
+            }
+        } elseif ($shareType !== 'folder' || trim((string) ($share['folder_path'] ?? '')) === '') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Share target not found.']);
         }
 
         if (! empty($share['revoked_at'])) {
@@ -732,7 +803,11 @@ class Files extends BaseController
             return $this->response->setStatusCode(500)->setJSON(['error' => 'The share link could not be disabled.']);
         }
 
-        $this->audit('share_link_revoked', (int) $share['file_id'], ['share_id' => $shareId]);
+        $this->audit(
+            $shareType === 'folder' ? 'folder_share_link_revoked' : 'share_link_revoked',
+            $shareType === 'file' ? (int) $share['file_id'] : null,
+            ['share_id' => $shareId, 'folder_path' => $share['folder_path'] ?? null]
+        );
 
         return $this->response
             ->setHeader('Cache-Control', 'private, no-store, max-age=0')
@@ -1001,6 +1076,50 @@ class Files extends BaseController
             'documentDate' => $this->cleanDate((string) ($payload['documentDate'] ?? '')),
             'expiresAt'    => $this->cleanDate((string) ($payload['expiresAt'] ?? '')),
             'reminderDays' => $reminder,
+        ];
+    }
+
+    private function formatShareRows(array $rows): array
+    {
+        return array_map(static function (array $share): array {
+            $status = ImportantFileShareModel::status($share);
+
+            return [
+                'id'             => (int) $share['id'],
+                'status'         => $status['key'],
+                'statusLabel'    => $status['label'],
+                'createdAt'      => (string) $share['created_at'],
+                'expiresAt'      => $share['expires_at'] ?: null,
+                'maxDownloads'   => $share['max_downloads'] !== null ? (int) $share['max_downloads'] : null,
+                'downloadCount'  => (int) ($share['download_count'] ?? 0),
+                'viewCount'      => (int) ($share['view_count'] ?? 0),
+                'revokedAt'      => $share['revoked_at'] ?: null,
+            ];
+        }, $rows);
+    }
+
+    private function validateShareSettings(array $payload): array
+    {
+        $duration = strtolower(trim((string) ($payload['duration'] ?? '7d')));
+        $durationMap = [
+            '1d'    => '+1 day',
+            '7d'    => '+7 days',
+            '30d'   => '+30 days',
+            '90d'   => '+90 days',
+            'never' => null,
+        ];
+        if (! array_key_exists($duration, $durationMap)) {
+            return ['error' => 'Choose a valid link expiration.'];
+        }
+
+        $maxDownloads = (int) ($payload['maxDownloads'] ?? 0);
+        if ($maxDownloads < 0 || $maxDownloads > 10000) {
+            return ['error' => 'Download limit must be between 1 and 10,000, or 0 for unlimited.'];
+        }
+
+        return [
+            'expiresAt'    => $durationMap[$duration] === null ? null : date('Y-m-d H:i:s', strtotime($durationMap[$duration])),
+            'maxDownloads' => $maxDownloads > 0 ? $maxDownloads : null,
         ];
     }
 
