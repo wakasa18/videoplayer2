@@ -72,6 +72,21 @@
     }
   })();
 
+
+  // --- retro synthwave chrome overlays ---
+  (function initRetroChrome() {
+    if (!document.querySelector('.retro-grid')) {
+      const grid = document.createElement('div');
+      grid.className = 'retro-grid';
+      document.body.appendChild(grid);
+    }
+    if (!document.querySelector('.scanline-layer')) {
+      const scan = document.createElement('div');
+      scan.className = 'scanline-layer';
+      document.body.appendChild(scan);
+    }
+  })();
+
   // --- occasional shooting stars ---
   (function initShootingStars() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
