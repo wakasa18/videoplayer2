@@ -27,7 +27,7 @@
       <?php foreach ($files as $f): $purge = ! empty($f['purge_at']) ? date('M j, Y', strtotime($f['purge_at'])) : 'Not scheduled'; ?>
         <li class="file-item">
           <div class="badge-file"><?= esc(strtoupper($f['file_extension'] ?: pathinfo($f['original_filename'], PATHINFO_EXTENSION))) ?></div>
-          <div class="file-meta"><div class="file-title"><?= esc($f['title']) ?></div><div class="file-sub"><?= esc($f['original_filename']) ?> · <?= \App\Models\ImportantFileModel::formatBytes((int) $f['file_size']) ?> · Purges <?= esc($purge) ?></div></div>
+          <div class="file-meta"><div class="file-title"><?= esc($f['title']) ?></div><?php if (! empty($f['folder_path'])): ?><div class="file-sub">&#128193; <?= esc($f['folder_path']) ?></div><?php endif; ?><div class="file-sub"><?= esc($f['original_filename']) ?> · <?= \App\Models\ImportantFileModel::formatBytes((int) $f['file_size']) ?> · Purges <?= esc($purge) ?></div></div>
           <div class="actions">
             <form action="<?= base_url('files/' . $f['id'] . '/restore') ?>" method="post"><?= csrf_field() ?><button class="btn-small" type="submit">Restore</button></form>
             <button class="btn-small danger js-purge" type="button" data-url="<?= base_url('files/' . $f['id'] . '/purge') ?>" data-title="<?= esc($f['title'], 'attr') ?>">Delete permanently</button>

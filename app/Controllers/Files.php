@@ -124,6 +124,7 @@ class Files extends BaseController
         $filters = [
             'q'        => trim((string) $this->request->getGet('q')),
             'category' => trim((string) $this->request->getGet('category')),
+            'folder'   => trim((string) $this->request->getGet('folder')),
             'type'     => strtolower(trim((string) $this->request->getGet('type'))),
             'expiry'   => trim((string) $this->request->getGet('expiry')),
             'favorite' => trim((string) $this->request->getGet('favorite')),
@@ -138,6 +139,7 @@ class Files extends BaseController
             'pager'      => $queryModel->pager,
             'filters'    => $filters,
             'categories' => (new ImportantFileModel())->getCategories(),
+            'folders'    => (new ImportantFileModel())->getFolders(),
             'extensions' => (new ImportantFileModel())->getExtensions(),
             'summary'    => (new ImportantFileModel())->getVaultSummary(),
             'maxBytes'   => $this->maxUploadBytes(),
@@ -195,6 +197,7 @@ class Files extends BaseController
             'title'             => $clean['title'],
             'description'       => $clean['description'],
             'category'          => $clean['category'],
+            'folder_path'       => $clean['folderPath'],
             'stored_filename'   => $basename,
             'original_filename' => $clean['originalName'],
             'file_path'         => $filePath,
@@ -460,6 +463,8 @@ class Files extends BaseController
         $title       = trim((string) $this->request->getPost('title'));
         $description = trim((string) $this->request->getPost('description'));
         $category    = trim((string) $this->request->getPost('category'));
+        $folderRaw   = (string) $this->request->getPost('folder_path');
+        $folderPath  = $this->cleanFolderPath($folderRaw);
         $document    = $this->cleanDate((string) $this->request->getPost('document_date'));
         $expires     = $this->cleanDate((string) $this->request->getPost('expires_at'));
         $reminder    = max(0, min(3650, (int) $this->request->getPost('reminder_days')));
@@ -467,11 +472,15 @@ class Files extends BaseController
         if ($title === '' || mb_strlen($title) > 255 || mb_strlen($description) > 5000 || mb_strlen($category) > 100) {
             return redirect()->to('/files')->with('error', 'Please check the title, description, and category lengths.');
         }
+        if ($folderPath === false) {
+            return redirect()->to('/files')->with('error', 'The folder path is invalid or too long.');
+        }
 
         $this->fileModel->update($id, [
             'title'                  => $title,
             'description'            => $description !== '' ? $description : null,
             'category'               => $category !== '' ? $category : null,
+            'folder_path'            => $folderPath,
             'document_date'          => $document,
             'expires_at'             => $expires,
             'reminder_days'          => $reminder,
@@ -572,6 +581,7 @@ class Files extends BaseController
         $title      = trim((string) ($payload['title'] ?? ''));
         $description = trim((string) ($payload['description'] ?? ''));
         $category    = trim((string) ($payload['category'] ?? ''));
+        $folderPath  = $this->cleanFolderPath((string) ($payload['folderPath'] ?? ''));
         $mimeType    = strtolower(trim(explode(';', (string) ($payload['mimetype'] ?? ''))[0]));
         $fileSize    = (int) ($payload['filesize'] ?? 0);
         $checksum    = strtolower(trim((string) ($payload['checksum'] ?? '')));
@@ -595,6 +605,9 @@ class Files extends BaseController
         if (mb_strlen($description) > 5000 || mb_strlen($category) > 100) {
             return ['error' => 'The description or category is too long.'];
         }
+        if ($folderPath === false) {
+            return ['error' => 'The folder path is invalid or too long.'];
+        }
         if ($checksum !== '' && ! preg_match('/^[a-f0-9]{64}$/', $checksum)) {
             return ['error' => 'The file checksum is invalid.'];
         }
@@ -603,6 +616,7 @@ class Files extends BaseController
             'title'        => $title,
             'description'  => $description !== '' ? $description : null,
             'category'     => $category !== '' ? $category : null,
+            'folderPath'   => $folderPath,
             'originalName' => $original,
             'extension'    => $extension,
             'mimeType'     => $mimeType !== '' ? $mimeType : 'application/octet-stream',
@@ -612,6 +626,41 @@ class Files extends BaseController
             'expiresAt'    => $this->cleanDate((string) ($payload['expiresAt'] ?? '')),
             'reminderDays' => $reminder,
         ];
+    }
+
+
+    /**
+     * Normalize a browser-provided relative folder path for metadata storage.
+     * The value is never used as a Supabase object key, but traversal-like
+     * segments and excessive lengths are still rejected.
+     *
+     * @return string|false|null
+     */
+    private function cleanFolderPath(string $value)
+    {
+        $value = preg_replace('/[\x00-\x1F\x7F]/u', '', str_replace('\\', '/', $value)) ?? '';
+        $value = trim(preg_replace('#/+#', '/', $value) ?? '', "/ \t\n\r\0\x0B");
+
+        if ($value === '') {
+            return null;
+        }
+        if (mb_strlen($value) > 1000) {
+            return false;
+        }
+
+        $segments = [];
+        foreach (explode('/', $value) as $segment) {
+            $segment = trim($segment);
+            if ($segment === '') {
+                continue;
+            }
+            if ($segment === '.' || $segment === '..' || mb_strlen($segment) > 150) {
+                return false;
+            }
+            $segments[] = $segment;
+        }
+
+        return $segments === [] ? null : implode('/', $segments);
     }
 
     private function mimeAllowed(string $extension, string $mimeType): bool

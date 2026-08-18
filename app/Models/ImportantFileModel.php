@@ -16,6 +16,7 @@ class ImportantFileModel extends Model
         'title',
         'description',
         'category',
+        'folder_path',
         'stored_filename',
         'original_filename',
         'file_path',
@@ -45,6 +46,7 @@ class ImportantFileModel extends Model
     protected $validationRules = [
         'title'             => 'required|min_length[1]|max_length[255]',
         'original_filename' => 'required|max_length[255]',
+        'folder_path'       => 'permit_empty|max_length[1000]',
         'stored_filename'   => 'required|max_length[255]',
         'file_path'         => 'required|max_length[500]',
         'file_extension'    => 'permit_empty|max_length[20]',
@@ -64,6 +66,7 @@ class ImportantFileModel extends Model
                 ->like('title', $query)
                 ->orLike('description', $query)
                 ->orLike('category', $query)
+                ->orLike('folder_path', $query)
                 ->orLike('original_filename', $query)
                 ->groupEnd();
         }
@@ -71,6 +74,11 @@ class ImportantFileModel extends Model
         $category = trim((string) ($filters['category'] ?? ''));
         if ($category !== '') {
             $this->where('category', $category);
+        }
+
+        $folder = trim((string) ($filters['folder'] ?? ''));
+        if ($folder !== '') {
+            $this->where('folder_path', $folder);
         }
 
         $extension = strtolower(trim((string) ($filters['type'] ?? '')));
@@ -136,6 +144,20 @@ class ImportantFileModel extends Model
             ->findAll();
 
         return array_values(array_filter(array_column($rows, 'category')));
+    }
+
+
+    public function getFolders(): array
+    {
+        $rows = $this->select('folder_path')
+            ->where('status', 'active')
+            ->where('folder_path IS NOT NULL', null, false)
+            ->where('folder_path <>', '')
+            ->groupBy('folder_path')
+            ->orderBy('folder_path', 'ASC')
+            ->findAll();
+
+        return array_values(array_filter(array_column($rows, 'folder_path')));
     }
 
     public function getExtensions(): array

@@ -9,6 +9,7 @@ $editData  = [
     'title'         => (string) $f['title'],
     'description'   => (string) ($f['description'] ?? ''),
     'category'      => (string) ($f['category'] ?? ''),
+    'folder_path'   => (string) ($f['folder_path'] ?? ''),
     'document_date' => (string) ($f['document_date'] ?? ''),
     'expires_at'    => (string) ($f['expires_at'] ?? ''),
     'reminder_days' => (int) ($f['reminder_days'] ?? 30),
@@ -22,6 +23,7 @@ $editData  = [
       <?php if (! empty($f['is_favorite'])): ?><span class="favorite-mark" title="Favorite">&#9733;</span><?php endif; ?>
     </div>
     <div class="original-name" title="<?= esc($f['original_filename'], 'attr') ?>"><?= esc($f['original_filename']) ?></div>
+    <?php if (! empty($f['folder_path'])): ?><div class="folder-path" title="<?= esc($f['folder_path'], 'attr') ?>">&#128193; <?= esc($f['folder_path']) ?></div><?php endif; ?>
     <?php if (! empty($f['description'])): ?>
       <div class="file-desc"><?= esc($f['description']) ?></div>
     <?php endif; ?>
