@@ -265,12 +265,12 @@
   /* -- form fields, shared by any page with a form -- */
   label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; }
   label:first-of-type{ margin-top:0; }
-  input[type="text"], input[type="date"], input[type="search"], input[type="url"], input[type="time"], textarea{
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="search"], input[type="url"], input[type="time"], textarea{
     width:100%; background:var(--surface-2); border:1px solid var(--hairline);
     border-radius:6px; padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit;
     resize:vertical;
   }
-  input[type="text"]:focus, input[type="date"]:focus, input[type="search"]:focus, input[type="url"]:focus, input[type="time"]:focus, textarea:focus, input[type="file"]:focus{
+  input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, input[type="date"]:focus, input[type="search"]:focus, input[type="url"]:focus, input[type="time"]:focus, textarea:focus, input[type="file"]:focus{
     outline:2px solid var(--cyan); outline-offset:1px;
   }
   /* -- visible keyboard focus ring, site-wide -- */

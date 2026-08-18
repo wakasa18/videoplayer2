@@ -79,3 +79,21 @@ live, uploading a video will:
 - **Function duration**: `maxDuration` is set to 30s in `vercel.json`.
   Slow uploads on a large file + slow connection could time out; raise
   this if needed (subject to your Vercel plan's limits).
+
+
+## Important Files vault upgrade
+
+For an existing Supabase deployment, run `database/important_files_upgrade.sql` once in the Supabase SQL Editor before deploying this version. For a fresh deployment, the updated `database/schema.postgres.sql` already includes the vault tables.
+
+Create a second Supabase Storage bucket named `important-files` and keep **Public bucket OFF**. Add these Vercel environment variables:
+
+```
+SUPABASE_FILES_BUCKET=important-files
+FILES_ACCESS_PASSWORD=<long-private-password>
+FILES_MAX_UPLOAD_MB=50
+CRON_SECRET=<random-secret>
+```
+
+The `/cron/files-maintenance` Vercel cron runs daily. It removes abandoned pending uploads older than one hour, permanently purges Recycle Bin files after 30 days, and sends expiration reminders when the existing email variables are configured.
+
+The project ZIP should never include a real `.env`; use `.env.example` only and store real values in Vercel.

@@ -17,12 +17,20 @@ $routes->get('pictures', 'Pictures::index');
 // Important Files (password-gated)
 $routes->get('files', 'Files::index');
 $routes->get('files/gate', 'Files::gate');
+$routes->get('files/recycle', 'Files::recycle');
+$routes->get('files/activity', 'Files::activity');
 $routes->post('files/unlock', 'Files::unlock');
 $routes->post('files/lock', 'Files::lock');
 $routes->post('files/sign-upload', 'Files::signUpload');
 $routes->post('files/store', 'Files::store');
+$routes->post('files/cancel-upload', 'Files::cancelUpload');
+$routes->get('files/(:num)/preview', 'Files::preview/$1');
 $routes->get('files/(:num)/download', 'Files::download/$1');
+$routes->post('files/(:num)/update', 'Files::update/$1');
+$routes->post('files/(:num)/favorite', 'Files::toggleFavorite/$1');
 $routes->post('files/(:num)/delete', 'Files::destroy/$1');
+$routes->post('files/(:num)/restore', 'Files::restore/$1');
+$routes->post('files/(:num)/purge', 'Files::purge/$1');
 
 // Others hub + its placeholder sections
 $routes->get('others', 'Others::index');
@@ -49,3 +57,5 @@ $routes->get('cron/check-deadlines', 'Cron::checkDeadlines');
 $routes->get('cron/check-deadlines/test', 'Cron::test');
 $routes->get('cron/weekly-digest', 'Cron::weeklyDigest');
 $routes->get('cron/weekly-digest/test', 'Cron::weeklyDigestTest');
+$routes->get('cron/files-maintenance', 'FileVaultCron::maintenance');
+$routes->get('cron/files-maintenance/test', 'FileVaultCron::maintenance');

@@ -6,12 +6,31 @@
     }
   },
   "routes": [
-    { "src": "/favicon.ico", "dest": "/public/favicon.ico" },
-    { "src": "/robots.txt", "dest": "/public/robots.txt" },
-    { "src": "/(.*)", "dest": "/api/index.php" }
+    {
+      "src": "/favicon.ico",
+      "dest": "/public/favicon.ico"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "/public/robots.txt"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.php"
+    }
   ],
   "crons": [
-    { "path": "/cron/check-deadlines", "schedule": "0 1 * * *" },
-    { "path": "/cron/weekly-digest", "schedule": "0 11 * * 0" }
+    {
+      "path": "/cron/check-deadlines",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/cron/weekly-digest",
+      "schedule": "0 11 * * 0"
+    },
+    {
+      "path": "/cron/files-maintenance",
+      "schedule": "0 0 * * *"
+    }
   ]
 }

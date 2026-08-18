@@ -24,6 +24,64 @@ CREATE TABLE IF NOT EXISTS videos (
 CREATE INDEX IF NOT EXISTS idx_videos_status     ON videos (status);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos (created_at);
 
+
+-- ============================================================
+--  Important Files vault (private Supabase Storage metadata)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS important_files (
+  id                     SERIAL PRIMARY KEY,
+  title                  VARCHAR(255) NOT NULL,
+  description            TEXT NULL,
+  category               VARCHAR(100) NULL,
+  stored_filename        VARCHAR(255) NOT NULL,
+  original_filename      VARCHAR(255) NOT NULL,
+  file_path              VARCHAR(500) NOT NULL,
+  file_extension         VARCHAR(20) NULL,
+  mime_type              VARCHAR(150) NOT NULL,
+  file_size              BIGINT NOT NULL CHECK (file_size > 0),
+  checksum_sha256        CHAR(64) NULL,
+  upload_token_hash      CHAR(64) NULL,
+  status                 VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'deleted', 'failed')),
+  document_date          DATE NULL,
+  expires_at             DATE NULL,
+  reminder_days          SMALLINT NOT NULL DEFAULT 30 CHECK (reminder_days BETWEEN 0 AND 3650),
+  expiration_reminded_at TIMESTAMP NULL,
+  is_favorite            BOOLEAN NOT NULL DEFAULT FALSE,
+  download_count         INTEGER NOT NULL DEFAULT 0 CHECK (download_count >= 0),
+  last_downloaded_at     TIMESTAMP NULL,
+  finalized_at           TIMESTAMP NULL,
+  created_at             TIMESTAMP NULL,
+  updated_at             TIMESTAMP NULL,
+  deleted_at             TIMESTAMP NULL,
+  purge_at               TIMESTAMP NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_important_files_stored_filename ON important_files (stored_filename);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_important_files_file_path ON important_files (file_path);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_important_files_upload_token_hash ON important_files (upload_token_hash) WHERE upload_token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_important_files_status ON important_files (status);
+CREATE INDEX IF NOT EXISTS idx_important_files_created_at ON important_files (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_important_files_category ON important_files (category);
+CREATE INDEX IF NOT EXISTS idx_important_files_extension ON important_files (file_extension);
+CREATE INDEX IF NOT EXISTS idx_important_files_expires_at ON important_files (expires_at);
+CREATE INDEX IF NOT EXISTS idx_important_files_purge_at ON important_files (purge_at);
+CREATE INDEX IF NOT EXISTS idx_important_files_favorite ON important_files (is_favorite);
+
+CREATE TABLE IF NOT EXISTS important_file_audits (
+  id            BIGSERIAL PRIMARY KEY,
+  file_id       INTEGER NULL REFERENCES important_files(id) ON DELETE SET NULL,
+  action        VARCHAR(80) NOT NULL,
+  details       JSONB NULL,
+  actor_ip_hash VARCHAR(32) NULL,
+  user_agent    VARCHAR(255) NULL,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_audits_file_id ON important_file_audits (file_id);
+CREATE INDEX IF NOT EXISTS idx_file_audits_action ON important_file_audits (action);
+CREATE INDEX IF NOT EXISTS idx_file_audits_created_at ON important_file_audits (created_at DESC);
+
 -- ============================================================
 --  Sessions table — required when deployed on Vercel, since its
 --  filesystem is read-only and can't use CodeIgniter's default

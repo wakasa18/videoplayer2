@@ -1,0 +1,39 @@
+IMPORTANT FILES VAULT - UPDATED FILES ONLY
+Generated: 2026-08-18
+
+This package contains only files added or modified for the Important Files upgrade.
+Extract/copy the contents into the ROOT of your existing videoplayer2 project and allow matching files to be replaced.
+
+Before deploying:
+1. Back up the current project and Supabase database.
+2. Run database/important_files_upgrade.sql ONCE in the existing Supabase SQL Editor.
+3. Merge these files into the project root.
+4. Add/update the required Vercel environment variables described in env or .env.example.
+5. Redeploy on Vercel.
+
+Do NOT run database/schema.postgres.sql against the existing database. It is the updated complete schema for fresh installations/reference only.
+
+Included changed/new files:
+- .env.example
+- .vercelignore
+- DEPLOY_VERCEL.md
+- IMPORTANT_FILES_UPGRADE.md
+- app/Config/Filters.php
+- app/Config/Routes.php
+- app/Config/Security.php
+- app/Controllers/FileVaultCron.php
+- app/Controllers/Files.php
+- app/Database/Migrations/2026-08-18-000003_UpgradeImportantFilesVault.php
+- app/Libraries/SupabaseStorage.php
+- app/Models/FileAuditModel.php
+- app/Models/ImportantFileModel.php
+- app/Views/files/_file_card.php
+- app/Views/files/activity.php
+- app/Views/files/gate.php
+- app/Views/files/index.php
+- app/Views/files/recycle.php
+- app/Views/partials/theme_head.php
+- database/important_files_upgrade.sql
+- database/schema.postgres.sql
+- env
+- vercel.json

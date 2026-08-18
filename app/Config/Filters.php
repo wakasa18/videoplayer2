@@ -106,5 +106,9 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        // Important Files accepts both normal forms and JSON requests.
+        // Restricting CSRF to this vault avoids breaking unrelated legacy pages.
+        'csrf' => ['before' => ['files', 'files/*']],
+    ];
 }

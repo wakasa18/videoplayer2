@@ -56,6 +56,22 @@
 # SUPABASE_SERVICE_KEY=your_service_role_key
 # SUPABASE_BUCKET=videos
 
+
+# --- Important Files private vault ---
+# Create a PRIVATE Supabase Storage bucket.
+# SUPABASE_FILES_BUCKET=important-files
+# FILES_ACCESS_PASSWORD=replace_with_a_long_private_password
+# FILES_MAX_UPLOAD_MB=50
+
+# Used by the daily cleanup and expiration-reminder cron.
+# CRON_SECRET=replace_with_a_random_secret
+# EMAIL_TO=you@example.com
+# EMAIL_FROM=you@example.com
+# EMAIL_SMTP_HOST=smtp.gmail.com
+# EMAIL_SMTP_USER=you@example.com
+# EMAIL_SMTP_PASS=app_password
+# EMAIL_SMTP_PORT=587
+
 # If you use MySQLi as tests, first update the values of Config\Database::$tests.
 # database.tests.hostname = localhost
 # database.tests.database = ci4_test

@@ -5,28 +5,12 @@ namespace App\Libraries;
 use Config\Supabase as SupabaseConfig;
 use RuntimeException;
 
-/**
- * Minimal client for the Supabase Storage REST API.
- *
- * We talk to the REST API directly over cURL instead of pulling in an SDK,
- * since this needs to stay light and dependency-free to deploy cleanly on
- * Vercel's PHP runtime (and Vercel's filesystem is read-only at request
- * time, so we can't rely on writing uploads to local disk like the
- * original UniServer-hosted version did).
- */
 class SupabaseStorage
 {
     protected string $baseUrl;
     protected string $serviceKey;
     protected string $bucket;
 
-    /**
-     * @param string|null $bucketOverride Pass a bucket name to use instead
-     *                                    of the configured default — e.g.
-     *                                    the private "important files"
-     *                                    bucket instead of the public
-     *                                    videos one.
-     */
     public function __construct(?string $bucketOverride = null)
     {
         /** @var SupabaseConfig $config */
@@ -36,16 +20,11 @@ class SupabaseStorage
         $this->serviceKey = $config->serviceKey;
         $this->bucket     = $bucketOverride ?? $config->bucket;
 
-        if ($this->baseUrl === '' || $this->serviceKey === '') {
-            throw new RuntimeException(
-                'Supabase storage is not configured. Set the SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables.'
-            );
+        if ($this->baseUrl === '' || $this->serviceKey === '' || $this->bucket === '') {
+            throw new RuntimeException('Supabase storage is not configured.');
         }
     }
 
-    /**
-     * Upload a local file into the bucket and return its public URL.
-     */
     public function upload(string $localPath, string $remotePath, string $mimeType): string
     {
         $fileContents = file_get_contents($localPath);
@@ -53,150 +32,228 @@ class SupabaseStorage
             throw new RuntimeException("Could not read local file: {$localPath}");
         }
 
-        $url = sprintf(
-            '%s/storage/v1/object/%s/%s',
-            $this->baseUrl,
-            $this->bucket,
-            ltrim($remotePath, '/')
-        );
-
+        $url = $this->objectUrl($remotePath);
         [$status, $response, $error] = $this->request('POST', $url, $fileContents, [
             'Content-Type: ' . $mimeType,
             'x-upsert: true',
         ]);
 
-        if ($error !== '') {
-            throw new RuntimeException("Supabase upload failed: {$error}");
-        }
-
-        if ($status < 200 || $status >= 300) {
-            throw new RuntimeException("Supabase upload failed with status {$status}: {$response}");
+        if ($error !== '' || $status < 200 || $status >= 300) {
+            throw new RuntimeException("Supabase upload failed with status {$status}: " . ($error ?: $response));
         }
 
         return $this->publicUrl($remotePath);
     }
 
-    /**
-     * Remove a file from the bucket. Returns true on success; false (not an
-     * exception) if it fails, since callers generally shouldn't block a DB
-     * delete just because the storage cleanup had an issue.
-     */
     public function delete(string $remotePath): bool
     {
-        $url = sprintf(
-            '%s/storage/v1/object/%s/%s',
-            $this->baseUrl,
-            $this->bucket,
-            ltrim($remotePath, '/')
-        );
-
-        [$status, , $error] = $this->request('DELETE', $url);
+        [$status, , $error] = $this->request('DELETE', $this->objectUrl($remotePath));
 
         return $error === '' && $status >= 200 && $status < 300;
     }
 
-    /**
-     * Build the public URL for a stored object. Requires the bucket to be
-     * marked "public" in the Supabase dashboard.
-     */
     public function publicUrl(string $remotePath): string
     {
         return sprintf(
             '%s/storage/v1/object/public/%s/%s',
             $this->baseUrl,
-            $this->bucket,
-            ltrim($remotePath, '/')
+            rawurlencode($this->bucket),
+            $this->encodePath($remotePath)
         );
     }
 
-    /**
-     * Create a short-lived signed URL the browser can upload directly to,
-     * bypassing our own backend entirely for the actual file bytes. This is
-     * required on Vercel (and just generally a good idea everywhere): Vercel
-     * serverless functions hard-cap request bodies at 4.5MB, which any real
-     * video file blows past instantly. The browser talks straight to
-     * Supabase instead; our backend only ever handles small JSON metadata.
-     *
-     * @return array{uploadUrl: string, publicUrl: string}
-     */
     public function createSignedUploadUrl(string $remotePath): array
     {
         $url = sprintf(
             '%s/storage/v1/object/upload/sign/%s/%s',
             $this->baseUrl,
-            $this->bucket,
-            ltrim($remotePath, '/')
+            rawurlencode($this->bucket),
+            $this->encodePath($remotePath)
         );
 
-        [$status, $response, $error] = $this->request('POST', $url, '{}', [
-            'Content-Type: application/json',
-        ]);
-
-        if ($error !== '') {
-            throw new RuntimeException("Supabase signed upload URL request failed: {$error}");
-        }
-
-        if ($status < 200 || $status >= 300) {
-            throw new RuntimeException("Supabase signed upload URL request failed with status {$status}: {$response}");
+        [$status, $response, $error] = $this->request('POST', $url, '{}', ['Content-Type: application/json']);
+        if ($error !== '' || $status < 200 || $status >= 300) {
+            throw new RuntimeException("Supabase signed upload URL request failed with status {$status}: " . ($error ?: $response));
         }
 
         $decoded = json_decode($response, true);
-
         if (! is_array($decoded) || ! isset($decoded['url'])) {
-            throw new RuntimeException('Supabase signed upload URL response was missing the expected "url" field.');
+            throw new RuntimeException('Supabase signed upload URL response was missing the expected URL.');
         }
 
         return [
-            // $decoded['url'] is a path like "/object/upload/sign/videos/xxx.mp4?token=...".
-            // The browser needs the full absolute URL to PUT to.
             'uploadUrl' => $this->baseUrl . '/storage/v1' . $decoded['url'],
             'publicUrl' => $this->publicUrl($remotePath),
         ];
     }
 
-    /**
-     * Create a short-lived signed URL for *reading* an object out of a
-     * private bucket. Unlike publicUrl(), this works even when the bucket
-     * itself isn't marked public — the URL only stays valid for
-     * $expiresInSeconds, after which it 403s. Used for the Important
-     * Files section, which is deliberately kept private (unlike the
-     * Videos bucket, which is public so the <video> tag can stream from
-     * it directly).
-     */
     public function createSignedDownloadUrl(string $remotePath, int $expiresInSeconds = 120): string
     {
         $url = sprintf(
             '%s/storage/v1/object/sign/%s/%s',
             $this->baseUrl,
-            $this->bucket,
-            ltrim($remotePath, '/')
+            rawurlencode($this->bucket),
+            $this->encodePath($remotePath)
         );
 
-        [$status, $response, $error] = $this->request('POST', $url, json_encode(['expiresIn' => $expiresInSeconds]), [
-            'Content-Type: application/json',
-        ]);
+        [$status, $response, $error] = $this->request(
+            'POST',
+            $url,
+            json_encode(['expiresIn' => max(1, $expiresInSeconds)]),
+            ['Content-Type: application/json']
+        );
 
-        if ($error !== '') {
-            throw new RuntimeException("Supabase signed download URL request failed: {$error}");
-        }
-
-        if ($status < 200 || $status >= 300) {
-            throw new RuntimeException("Supabase signed download URL request failed with status {$status}: {$response}");
+        if ($error !== '' || $status < 200 || $status >= 300) {
+            throw new RuntimeException("Supabase signed download URL request failed with status {$status}: " . ($error ?: $response));
         }
 
         $decoded = json_decode($response, true);
-
         if (! is_array($decoded) || ! isset($decoded['signedURL'])) {
-            throw new RuntimeException('Supabase signed download URL response was missing the expected "signedURL" field.');
+            throw new RuntimeException('Supabase signed download URL response was missing the expected signedURL.');
         }
 
-        // $decoded['signedURL'] is a path like "/object/sign/files/xxx.pdf?token=...".
         return $this->baseUrl . '/storage/v1' . $decoded['signedURL'];
     }
 
     /**
-     * @return array{0: int, 1: string, 2: string} [httpStatus, body, curlError]
+     * Verify that a private object exists and return its stored metadata.
+     * A short-lived signed URL is used so no service key leaves the server.
+     *
+     * @return array{exists: bool, size: int, contentType: string, status: int}
      */
+    public function getObjectInfo(string $remotePath): array
+    {
+        $signedUrl = $this->createSignedDownloadUrl($remotePath, 60);
+        $headers   = [];
+        $status    = 0;
+        $error     = '';
+
+        // Prefer HEAD because it does not transfer the object body.
+        $ch = curl_init($signedUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_NOBODY         => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$headers): int {
+                $length = strlen($line);
+                if (str_contains($line, ':')) {
+                    [$name, $value] = explode(':', $line, 2);
+                    $headers[strtolower(trim($name))] = trim($value);
+                }
+                return $length;
+            },
+        ]);
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error  = curl_error($ch);
+        curl_close($ch);
+
+        $size = isset($headers['content-length']) ? (int) $headers['content-length'] : 0;
+
+        // Some storage/CDN layers omit Content-Length on HEAD. Fall back to
+        // a one-byte range request and read the total from Content-Range.
+        if ($error !== '' || $status < 200 || $status >= 300 || $size <= 0) {
+            $headers  = [];
+            $received = 0;
+            $ch = curl_init($signedUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => false,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT        => 20,
+                CURLOPT_RANGE          => '0-0',
+                CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$headers): int {
+                    $length = strlen($line);
+                    if (str_contains($line, ':')) {
+                        [$name, $value] = explode(':', $line, 2);
+                        $headers[strtolower(trim($name))] = trim($value);
+                    }
+                    return $length;
+                },
+                CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$received): int {
+                    $received += strlen($chunk);
+                    return strlen($chunk);
+                },
+            ]);
+            curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error  = curl_error($ch);
+            curl_close($ch);
+
+            if (isset($headers['content-range']) && preg_match('~/([0-9]+)$~', $headers['content-range'], $match)) {
+                $size = (int) $match[1];
+            } elseif (isset($headers['content-length'])) {
+                $size = (int) $headers['content-length'];
+            }
+        }
+
+        if ($error !== '') {
+            throw new RuntimeException('Could not verify the uploaded object: ' . $error);
+        }
+
+        return [
+            'exists'      => $status >= 200 && $status < 300,
+            'size'        => $size,
+            'contentType' => strtolower(trim(explode(';', $headers['content-type'] ?? '')[0])),
+            'status'      => $status,
+        ];
+    }
+
+    /**
+     * Read only the first few bytes of a private object for file-signature validation.
+     */
+    public function readObjectPrefix(string $remotePath, int $bytes = 64): string
+    {
+        $bytes     = max(8, min($bytes, 512));
+        $signedUrl = $this->createSignedDownloadUrl($remotePath, 60);
+        $data      = '';
+        $ch        = curl_init($signedUrl);
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_RANGE          => '0-' . ($bytes - 1),
+            CURLOPT_WRITEFUNCTION  => static function ($curl, string $chunk) use (&$data, $bytes): int {
+                $remaining = $bytes - strlen($data);
+                if ($remaining <= 0) {
+                    return 0;
+                }
+                $data .= substr($chunk, 0, $remaining);
+                return strlen($chunk) > $remaining ? 0 : strlen($chunk);
+            },
+        ]);
+
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error  = curl_error($ch);
+        curl_close($ch);
+
+        if ((! in_array($status, [200, 206], true)) || ($error !== '' && strlen($data) < $bytes)) {
+            throw new RuntimeException('Could not inspect the uploaded object.');
+        }
+
+        return substr($data, 0, $bytes);
+    }
+
+    protected function objectUrl(string $remotePath): string
+    {
+        return sprintf(
+            '%s/storage/v1/object/%s/%s',
+            $this->baseUrl,
+            rawurlencode($this->bucket),
+            $this->encodePath($remotePath)
+        );
+    }
+
+    protected function encodePath(string $remotePath): string
+    {
+        $segments = array_filter(explode('/', ltrim($remotePath, '/')), static fn ($part) => $part !== '');
+
+        return implode('/', array_map('rawurlencode', $segments));
+    }
+
+    /** @return array{0:int,1:string,2:string} */
     protected function request(string $method, string $url, ?string $body = null, array $extraHeaders = []): array
     {
         $headers = array_merge([
@@ -205,20 +262,17 @@ class SupabaseStorage
         ], $extraHeaders);
 
         $ch = curl_init($url);
-
         $options = [
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 120,
         ];
-
         if ($body !== null) {
             $options[CURLOPT_POSTFIELDS] = $body;
         }
 
         curl_setopt_array($ch, $options);
-
         $response = curl_exec($ch);
         $status   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error    = curl_error($ch);
