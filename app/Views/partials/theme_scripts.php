@@ -6,8 +6,8 @@
 <nav class="site-topbar" aria-label="Main navigation">
   <div class="site-topbar-inner">
     <a class="site-brand" href="<?= base_url('/') ?>">
-      <span class="site-brand-mark">D</span>
-      <span class="site-brand-copy"><span class="site-brand-title">Damon's Archive</span><span class="site-brand-sub">Personal system</span></span>
+      <span class="site-brand-mark">DA</span>
+      <span class="site-brand-copy"><span class="site-brand-title">Damon's Archive</span><span class="site-brand-sub">Arcade archive</span></span>
     </a>
     <div class="site-nav" aria-label="Archive sections">
       <a class="site-nav-link<?= $active(['']) ?>" href="<?= base_url('/') ?>">Home</a>
@@ -38,9 +38,9 @@
     const STAR_COLORS = [
       { color: '#EAF2FF', weight: 45 }, // blue-white
       { color: '#FFFFFF', weight: 25 }, // white
-      { color: '#FFF3D6', weight: 18 }, // pale yellow
-      { color: '#FFD9B3', weight: 8  }, // pale orange
-      { color: '#FFB3A1', weight: 4  }, // faint red giant
+      { color: '#BFF8FF', weight: 18 }, // cyan-white
+      { color: '#E5D8FF', weight: 8  }, // violet-white
+      { color: '#FFC9F1', weight: 4  }, // pink-white
     ];
     const totalWeight = STAR_COLORS.reduce((sum, c) => sum + c.weight, 0);
     function pickColor() {
@@ -52,7 +52,7 @@
       return STAR_COLORS[0].color;
     }
 
-    const count = window.innerWidth < 700 ? 70 : 140;
+    const count = window.innerWidth < 700 ? 42 : 84;
     for (let i = 0; i < count; i++) {
       const star = document.createElement('span');
       const roll = Math.random();
