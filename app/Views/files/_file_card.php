@@ -1,10 +1,10 @@
 <?php
 use App\Models\ImportantFileModel;
 
-$typeLabel = ImportantFileModel::typeLabel((string) $f['mime_type'], (string) $f['original_filename']);
-$expiry    = ImportantFileModel::expirationState($f['expires_at'] ?? null);
-$preview   = ImportantFileModel::isPreviewable($f);
-$editData  = [
+$typeLabel   = ImportantFileModel::typeLabel((string) $f['mime_type'], (string) $f['original_filename']);
+$expiry      = ImportantFileModel::expirationState($f['expires_at'] ?? null);
+$previewKind = ImportantFileModel::previewKind($f);
+$editData    = [
     'id'            => (int) $f['id'],
     'title'         => (string) $f['title'],
     'description'   => (string) ($f['description'] ?? ''),
@@ -14,8 +14,23 @@ $editData  = [
     'expires_at'    => (string) ($f['expires_at'] ?? ''),
     'reminder_days' => (int) ($f['reminder_days'] ?? 30),
 ];
+$openData = [
+    'id'          => (int) $f['id'],
+    'title'       => (string) $f['title'],
+    'filename'    => (string) $f['original_filename'],
+    'description' => (string) ($f['description'] ?? ''),
+    'category'    => (string) ($f['category'] ?? ''),
+    'folder'      => (string) ($f['folder_path'] ?? ''),
+    'typeLabel'   => $typeLabel,
+    'mimeType'    => (string) ($f['mime_type'] ?? 'application/octet-stream'),
+    'sizeLabel'   => ImportantFileModel::formatBytes((int) $f['file_size']),
+    'dateLabel'   => date('M j, Y', strtotime((string) $f['created_at'])),
+    'previewKind' => $previewKind,
+    'previewUrl'  => $previewKind !== 'unsupported' ? base_url('files/' . $f['id'] . '/preview') : '',
+    'downloadUrl' => base_url('files/' . $f['id'] . '/download'),
+];
 ?>
-<li class="file-item" data-file-id="<?= (int) $f['id'] ?>">
+<li class="file-item js-open-file" data-file-id="<?= (int) $f['id'] ?>" data-open-file="<?= esc(json_encode($openData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>" tabindex="0" role="button" aria-label="Open <?= esc($f['title'], 'attr') ?>">
   <div class="file-type-badge"><?= esc($typeLabel) ?></div>
   <div class="file-meta">
     <div class="file-title-row">
@@ -23,10 +38,7 @@ $editData  = [
       <?php if (! empty($f['is_favorite'])): ?><span class="favorite-mark" title="Favorite">&#9733;</span><?php endif; ?>
     </div>
     <div class="original-name" title="<?= esc($f['original_filename'], 'attr') ?>"><?= esc($f['original_filename']) ?></div>
-    <?php if (! empty($f['folder_path'])): ?><div class="folder-path" title="<?= esc($f['folder_path'], 'attr') ?>">&#128193; <?= esc($f['folder_path']) ?></div><?php endif; ?>
-    <?php if (! empty($f['description'])): ?>
-      <div class="file-desc"><?= esc($f['description']) ?></div>
-    <?php endif; ?>
+    <?php if (! empty($f['description'])): ?><div class="file-desc"><?= esc($f['description']) ?></div><?php endif; ?>
     <div class="file-sub">
       <?php if (! empty($f['category'])): ?><span class="category-tag"><?= esc($f['category']) ?></span><?php endif; ?>
       <?php if ($expiry): ?><span class="expiry-tag <?= esc($expiry['key']) ?>"><?= esc($expiry['label']) ?></span><?php endif; ?>
@@ -37,9 +49,7 @@ $editData  = [
   <details class="action-menu">
     <summary aria-label="Actions for <?= esc($f['title'], 'attr') ?>">&#8942;</summary>
     <div class="action-menu-panel">
-      <?php if ($preview): ?>
-        <button type="button" class="menu-action js-preview" data-preview-url="<?= base_url('files/' . $f['id'] . '/preview') ?>" data-preview-title="<?= esc($f['title'], 'attr') ?>">Preview</button>
-      <?php endif; ?>
+      <button type="button" class="menu-action js-preview" data-open-file="<?= esc(json_encode($openData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>">Open</button>
       <a class="menu-action" href="<?= base_url('files/' . $f['id'] . '/download') ?>" target="_blank" rel="noopener">Download</a>
       <button type="button" class="menu-action js-edit" data-file="<?= esc(json_encode($editData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>">Edit details</button>
       <form action="<?= base_url('files/' . $f['id'] . '/favorite') ?>" method="post">

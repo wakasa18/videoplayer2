@@ -126,6 +126,137 @@ class ImportantFileModel extends Model
         return $this->paginate($perPage, 'files');
     }
 
+    public function getFolderFiles(?string $folderPath, array $filters, int $perPage = 20): array
+    {
+        $this->where('status', 'active');
+
+        // Favorites is a vault-wide collection, while ordinary browsing and
+        // searching stay inside the currently opened folder.
+        if (($filters['favorite'] ?? '') !== '1') {
+            if ($folderPath === null || $folderPath === '') {
+                $this->groupStart()
+                    ->where('folder_path IS NULL', null, false)
+                    ->orWhere('folder_path', '')
+                    ->groupEnd();
+            } else {
+                $this->where('folder_path', $folderPath);
+            }
+        }
+
+        $this->applyFileFilters($filters);
+
+        return $this->paginate($perPage, 'files');
+    }
+
+    /**
+     * Return only the immediate folders inside the current path. Folder rows
+     * are derived from file metadata, so existing uploaded folder structures
+     * work without another database table.
+     *
+     * @return array<int, array{name:string,path:string,count:int}>
+     */
+    public function getChildFolders(?string $folderPath): array
+    {
+        $rows = $this->select('folder_path')
+            ->where('status', 'active')
+            ->where('folder_path IS NOT NULL', null, false)
+            ->where('folder_path <>', '')
+            ->findAll();
+
+        $prefix = $folderPath ? trim($folderPath, '/') . '/' : '';
+        $folders = [];
+
+        foreach ($rows as $row) {
+            $path = trim((string) ($row['folder_path'] ?? ''), '/');
+            if ($path === '') {
+                continue;
+            }
+            if ($prefix !== '' && ! str_starts_with($path . '/', $prefix)) {
+                continue;
+            }
+
+            $remaining = $prefix === '' ? $path : substr($path, strlen($prefix));
+            if ($remaining === '' || $remaining === false) {
+                continue;
+            }
+
+            $name = explode('/', $remaining, 2)[0];
+            if ($name === '') {
+                continue;
+            }
+
+            $childPath = $prefix . $name;
+            if (! isset($folders[$childPath])) {
+                $folders[$childPath] = ['name' => $name, 'path' => $childPath, 'count' => 0];
+            }
+            $folders[$childPath]['count']++;
+        }
+
+        uasort($folders, static fn (array $a, array $b): int => strnatcasecmp($a['name'], $b['name']));
+
+        return array_values($folders);
+    }
+
+    private function applyFileFilters(array $filters): void
+    {
+        $query = trim((string) ($filters['q'] ?? ''));
+        if ($query !== '') {
+            $this->groupStart()
+                ->like('title', $query)
+                ->orLike('description', $query)
+                ->orLike('category', $query)
+                ->orLike('original_filename', $query)
+                ->groupEnd();
+        }
+
+        $category = trim((string) ($filters['category'] ?? ''));
+        if ($category !== '') {
+            $this->where('category', $category);
+        }
+
+        $extension = strtolower(trim((string) ($filters['type'] ?? '')));
+        if ($extension !== '') {
+            $this->where('file_extension', $extension);
+        }
+
+        $expiry = (string) ($filters['expiry'] ?? '');
+        $today  = date('Y-m-d');
+        $soon   = date('Y-m-d', strtotime('+30 days'));
+
+        if ($expiry === 'expired') {
+            $this->where('expires_at IS NOT NULL', null, false)->where('expires_at <', $today);
+        } elseif ($expiry === 'soon') {
+            $this->where('expires_at IS NOT NULL', null, false)
+                ->where('expires_at >=', $today)
+                ->where('expires_at <=', $soon);
+        } elseif ($expiry === 'none') {
+            $this->where('expires_at IS NULL', null, false);
+        }
+
+        if (($filters['favorite'] ?? '') === '1') {
+            $this->where('is_favorite', true);
+        }
+
+        $sortMap = [
+            'newest'    => ['created_at', 'DESC'],
+            'oldest'    => ['created_at', 'ASC'],
+            'name_asc'  => ['title', 'ASC'],
+            'name_desc' => ['title', 'DESC'],
+            'size_asc'  => ['file_size', 'ASC'],
+            'size_desc' => ['file_size', 'DESC'],
+            'expires'   => ['expires_at', 'ASC'],
+        ];
+        [$sortColumn, $sortDirection] = $sortMap[$filters['sort'] ?? 'name_asc'] ?? $sortMap['name_asc'];
+
+        if ($sortColumn === 'expires_at') {
+            $this->orderBy('expires_at IS NULL', 'ASC', false);
+        }
+
+        $this->orderBy('is_favorite', 'DESC')
+            ->orderBy($sortColumn, $sortDirection)
+            ->orderBy('id', 'DESC');
+    }
+
     public function getDeletedFiles(int $perPage = 10): array
     {
         return $this->where('status', 'deleted')
@@ -257,11 +388,76 @@ class ImportantFileModel extends Model
         return $ext !== '' ? $ext : 'FILE';
     }
 
+    public static function previewKind(array $file): string
+    {
+        $extension = strtolower((string) ($file['file_extension'] ?? ''));
+        if ($extension === '') {
+            $extension = strtolower((string) pathinfo((string) ($file['original_filename'] ?? ''), PATHINFO_EXTENSION));
+        }
+        $mime = strtolower((string) ($file['mime_type'] ?? ''));
+
+        if ($extension === 'pdf' || $mime === 'application/pdf') {
+            return 'pdf';
+        }
+        if (in_array($extension, ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif', 'ico'], true)
+            || str_starts_with($mime, 'image/') && ! in_array($extension, ['svg', 'svgz'], true)) {
+            return 'image';
+        }
+        if (in_array($extension, ['mp4', 'webm', 'ogv', 'mov', 'm4v'], true) || str_starts_with($mime, 'video/')) {
+            return 'video';
+        }
+        if (in_array($extension, ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac', 'opus'], true) || str_starts_with($mime, 'audio/')) {
+            return 'audio';
+        }
+
+        $textExtensions = [
+            'txt', 'csv', 'json', 'md', 'markdown', 'log', 'xml', 'yaml', 'yml',
+            'ini', 'conf', 'config', 'sql', 'css', 'js', 'mjs', 'ts', 'jsx', 'tsx',
+            'php', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'go', 'rs', 'rb',
+            'sh', 'bash', 'bat', 'cmd', 'ps1', 'env', 'gitignore', 'htaccess',
+            'html', 'htm', 'svg', 'toml', 'properties', 'vue', 'svelte', 'dart',
+        ];
+        if (in_array($extension, $textExtensions, true) || str_starts_with($mime, 'text/')) {
+            return 'text';
+        }
+
+        return 'unsupported';
+    }
+
     public static function isPreviewable(array $file): bool
     {
-        $extension = strtolower((string) ($file['file_extension'] ?? pathinfo((string) $file['original_filename'], PATHINFO_EXTENSION)));
+        return self::previewKind($file) !== 'unsupported';
+    }
 
-        return in_array($extension, ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'csv'], true);
+    public static function previewMimeType(array $file, string $storageMime = ''): string
+    {
+        $kind = self::previewKind($file);
+        $ext  = strtolower((string) ($file['file_extension'] ?? pathinfo((string) ($file['original_filename'] ?? ''), PATHINFO_EXTENSION)));
+
+        if ($kind === 'text') {
+            return 'text/plain; charset=UTF-8';
+        }
+        if ($kind === 'pdf') {
+            return 'application/pdf';
+        }
+
+        $known = [
+            'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp', 'gif' => 'image/gif', 'bmp' => 'image/bmp',
+            'avif' => 'image/avif', 'ico' => 'image/x-icon',
+            'mp4' => 'video/mp4', 'webm' => 'video/webm', 'ogv' => 'video/ogg',
+            'mov' => 'video/quicktime', 'm4v' => 'video/x-m4v',
+            'mp3' => 'audio/mpeg', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg',
+            'oga' => 'audio/ogg', 'm4a' => 'audio/mp4', 'aac' => 'audio/aac',
+            'flac' => 'audio/flac', 'opus' => 'audio/ogg',
+        ];
+
+        if (isset($known[$ext])) {
+            return $known[$ext];
+        }
+
+        $storageMime = strtolower(trim(explode(';', $storageMime)[0] ?? ''));
+        return $storageMime !== '' ? $storageMime : 'application/octet-stream';
     }
 
     public static function expirationState(?string $expiresAt): ?array

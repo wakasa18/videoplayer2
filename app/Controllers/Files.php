@@ -17,26 +17,6 @@ class Files extends BaseController
     protected ImportantFileModel $fileModel;
     protected FileAuditModel $auditModel;
 
-    /** @var array<string, list<string>> */
-    protected array $allowedMimeTypes = [
-        'pdf'  => ['application/pdf'],
-        'doc'  => ['application/msword', 'application/x-ole-storage'],
-        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
-        'xls'  => ['application/vnd.ms-excel', 'application/x-ole-storage'],
-        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
-        'ppt'  => ['application/vnd.ms-powerpoint', 'application/x-ole-storage'],
-        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
-        'txt'  => ['text/plain'],
-        'csv'  => ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'],
-        'zip'  => ['application/zip', 'application/x-zip-compressed'],
-        'png'  => ['image/png'],
-        'jpg'  => ['image/jpeg'],
-        'jpeg' => ['image/jpeg'],
-        'webp' => ['image/webp'],
-        'gif'  => ['image/gif'],
-        'heic' => ['image/heic', 'image/heif', 'application/octet-stream'],
-    ];
-
     public function __construct()
     {
         $this->fileModel  = new ImportantFileModel();
@@ -121,29 +101,38 @@ class Files extends BaseController
             return redirect()->to('/files/gate');
         }
 
+        $pathValue = $this->cleanFolderPath((string) $this->request->getGet('path'));
+        if ($pathValue === false) {
+            return redirect()->to('/files')->with('error', 'That folder path is invalid.');
+        }
+        $currentPath = $pathValue ?: null;
+
         $filters = [
             'q'        => trim((string) $this->request->getGet('q')),
             'category' => trim((string) $this->request->getGet('category')),
-            'folder'   => trim((string) $this->request->getGet('folder')),
             'type'     => strtolower(trim((string) $this->request->getGet('type'))),
             'expiry'   => trim((string) $this->request->getGet('expiry')),
             'favorite' => trim((string) $this->request->getGet('favorite')),
-            'sort'     => trim((string) ($this->request->getGet('sort') ?: 'newest')),
+            'sort'     => trim((string) ($this->request->getGet('sort') ?: 'name_asc')),
         ];
 
         $queryModel = new ImportantFileModel();
-        $files      = $queryModel->getFilteredActive($filters, 10);
+        $files      = $queryModel->getFolderFiles($currentPath, $filters, 20);
 
         return view('files/index', [
-            'files'      => $files,
-            'pager'      => $queryModel->pager,
-            'filters'    => $filters,
-            'categories' => (new ImportantFileModel())->getCategories(),
-            'folders'    => (new ImportantFileModel())->getFolders(),
-            'extensions' => (new ImportantFileModel())->getExtensions(),
-            'summary'    => (new ImportantFileModel())->getVaultSummary(),
-            'maxBytes'   => $this->maxUploadBytes(),
-            'maxMb'      => (int) ($this->maxUploadBytes() / 1024 / 1024),
+            'files'        => $files,
+            'pager'        => $queryModel->pager,
+            'filters'      => $filters,
+            'currentPath'  => $currentPath,
+            'breadcrumbs'  => $this->buildBreadcrumbs($currentPath),
+            'childFolders' => $filters['favorite'] === '1'
+                ? []
+                : (new ImportantFileModel())->getChildFolders($currentPath),
+            'categories'   => (new ImportantFileModel())->getCategories(),
+            'extensions'   => (new ImportantFileModel())->getExtensions(),
+            'summary'      => (new ImportantFileModel())->getVaultSummary(),
+            'maxBytes'     => $this->maxUploadBytes(),
+            'maxMb'        => (int) ($this->maxUploadBytes() / 1024 / 1024),
         ]);
     }
 
@@ -188,7 +177,7 @@ class Files extends BaseController
         }
 
         $extension = $clean['extension'];
-        $basename  = bin2hex(random_bytes(20)) . '.' . $extension;
+        $basename  = bin2hex(random_bytes(20)) . ($extension !== '' ? '.' . $extension : '');
         $filePath  = date('Y/m') . '/' . $basename;
         $rawToken  = bin2hex(random_bytes(32));
         $tokenHash = hash('sha256', $rawToken);
@@ -277,15 +266,6 @@ class Files extends BaseController
             if ((int) $info['size'] !== (int) $file['file_size']) {
                 throw new \RuntimeException('The uploaded file size does not match the signed request.');
             }
-            if (! $this->mimeAllowed((string) $file['file_extension'], (string) $info['contentType'])) {
-                throw new \RuntimeException('The stored content type does not match the selected file type.');
-            }
-
-            $prefix = $storage->readObjectPrefix($file['file_path'], 96);
-            if (! $this->signatureMatches((string) $file['file_extension'], $prefix)) {
-                throw new \RuntimeException('The file contents do not match the filename extension.');
-            }
-
             $updated = $this->fileModel->update((int) $file['id'], [
                 'status'            => 'active',
                 'mime_type'         => $info['contentType'] !== '' ? $info['contentType'] : $file['mime_type'],
@@ -358,7 +338,8 @@ class Files extends BaseController
         }
 
         $file = $this->fileModel->find($id);
-        if (! $file || $file['status'] !== 'active' || ! ImportantFileModel::isPreviewable($file)) {
+        $kind = $file ? ImportantFileModel::previewKind($file) : 'unsupported';
+        if (! $file || $file['status'] !== 'active' || $kind === 'unsupported') {
             return $this->response
                 ->setStatusCode(404)
                 ->setHeader('Cache-Control', 'private, no-store, max-age=0')
@@ -368,6 +349,13 @@ class Files extends BaseController
         $range = trim($this->request->getHeaderLine('Range'));
         if ($range !== '' && ! preg_match('/^bytes=\d*-\d*$/', $range)) {
             $range = '';
+        }
+
+        // Text and source files are shown as plain text. Limit very large text
+        // previews so opening a log or database export does not exhaust a
+        // serverless function's memory.
+        if ($kind === 'text' && $range === '' && (int) $file['file_size'] > 2 * 1024 * 1024) {
+            $range = 'bytes=0-2097151';
         }
 
         try {
@@ -382,25 +370,11 @@ class Files extends BaseController
                 ->setBody('The preview could not be loaded. Please close this window and try again.');
         }
 
-        if ($range === '') {
+        if ($range === '' || $range === 'bytes=0-2097151') {
             $this->audit('file_previewed', $id);
         }
 
-        $previewMimeTypes = [
-            'pdf'  => 'application/pdf',
-            'txt'  => 'text/plain; charset=UTF-8',
-            'csv'  => 'text/csv; charset=UTF-8',
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'webp' => 'image/webp',
-            'gif'  => 'image/gif',
-        ];
-        $extension = strtolower((string) ($file['file_extension'] ?? pathinfo((string) $file['original_filename'], PATHINFO_EXTENSION)));
-        $mimeType  = $previewMimeTypes[$extension]
-            ?? trim((string) ($object['contentType'] ?: $file['mime_type']))
-            ?: 'application/octet-stream';
-
+        $mimeType = ImportantFileModel::previewMimeType($file, (string) ($object['contentType'] ?? ''));
         $filename = basename(str_replace('\\', '/', (string) $file['original_filename']));
         $fallback = preg_replace('/[^A-Za-z0-9._ -]/', '_', $filename) ?: 'preview';
         $fallback = str_replace(['"', "\r", "\n"], '', $fallback);
@@ -421,6 +395,9 @@ class Files extends BaseController
 
         if ($object['contentRange'] !== '') {
             $response->setHeader('Content-Range', $object['contentRange']);
+        }
+        if ($kind === 'text' && (int) $file['file_size'] > 2 * 1024 * 1024) {
+            $response->setHeader('X-Preview-Truncated', 'true');
         }
 
         return $response;
@@ -577,8 +554,11 @@ class Files extends BaseController
     {
         $original = basename(str_replace('\\', '/', trim((string) ($payload['filename'] ?? ''))));
         $original = preg_replace('/[\x00-\x1F\x7F]/u', '', $original) ?: '';
-        $extension = strtolower(pathinfo($original, PATHINFO_EXTENSION));
-        $title      = trim((string) ($payload['title'] ?? ''));
+        $rawExtension = strtolower((string) pathinfo($original, PATHINFO_EXTENSION));
+        // Keep a short, safe suffix only for the randomized storage key. The
+        // complete original filename is always retained in the database.
+        $extension = preg_match('/^[a-z0-9][a-z0-9._+-]{0,19}$/', $rawExtension) ? $rawExtension : '';
+        $title       = trim((string) ($payload['title'] ?? ''));
         $description = trim((string) ($payload['description'] ?? ''));
         $category    = trim((string) ($payload['category'] ?? ''));
         $folderPath  = $this->cleanFolderPath((string) ($payload['folderPath'] ?? ''));
@@ -590,14 +570,8 @@ class Files extends BaseController
         if ($original === '' || mb_strlen($original) > 255) {
             return ['error' => 'The original filename is missing or too long.'];
         }
-        if (! isset($this->allowedMimeTypes[$extension])) {
-            return ['error' => 'Unsupported file extension.'];
-        }
         if ($fileSize <= 0 || $fileSize > $this->maxUploadBytes()) {
             return ['error' => 'Each file must be larger than 0 bytes and no more than ' . ($this->maxUploadBytes() / 1024 / 1024) . ' MB.'];
-        }
-        if (! $this->mimeAllowed($extension, $mimeType)) {
-            return ['error' => 'The selected file type does not match its extension.'];
         }
         if ($title === '' || mb_strlen($title) > 255) {
             return ['error' => 'A title of up to 255 characters is required.'];
@@ -612,6 +586,9 @@ class Files extends BaseController
             return ['error' => 'The file checksum is invalid.'];
         }
 
+        $mimeType = preg_replace('/[^a-z0-9!#$&^_.+\-\/]/', '', $mimeType) ?: 'application/octet-stream';
+        $mimeType = mb_substr($mimeType, 0, 150);
+
         return [
             'title'        => $title,
             'description'  => $description !== '' ? $description : null,
@@ -619,7 +596,7 @@ class Files extends BaseController
             'folderPath'   => $folderPath,
             'originalName' => $original,
             'extension'    => $extension,
-            'mimeType'     => $mimeType !== '' ? $mimeType : 'application/octet-stream',
+            'mimeType'     => $mimeType,
             'fileSize'     => $fileSize,
             'checksum'     => $checksum !== '' ? $checksum : null,
             'documentDate' => $this->cleanDate((string) ($payload['documentDate'] ?? '')),
@@ -627,7 +604,6 @@ class Files extends BaseController
             'reminderDays' => $reminder,
         ];
     }
-
 
     /**
      * Normalize a browser-provided relative folder path for metadata storage.
@@ -663,32 +639,22 @@ class Files extends BaseController
         return $segments === [] ? null : implode('/', $segments);
     }
 
-    private function mimeAllowed(string $extension, string $mimeType): bool
+    /** @return array<int, array{label:string,path:string}> */
+    private function buildBreadcrumbs(?string $path): array
     {
-        $mimeType = strtolower(trim(explode(';', $mimeType)[0] ?? ''));
-        if ($mimeType === '' || $mimeType === 'application/octet-stream') {
-            return true;
+        if ($path === null || $path === '') {
+            return [];
         }
 
-        return in_array($mimeType, $this->allowedMimeTypes[$extension] ?? [], true);
-    }
+        $crumbs = [];
+        $parts  = explode('/', $path);
+        $built  = [];
+        foreach ($parts as $part) {
+            $built[]  = $part;
+            $crumbs[] = ['label' => $part, 'path' => implode('/', $built)];
+        }
 
-    private function signatureMatches(string $extension, string $prefix): bool
-    {
-        $hex = strtoupper(bin2hex($prefix));
-
-        return match ($extension) {
-            'pdf'                    => str_starts_with($prefix, '%PDF-'),
-            'png'                    => str_starts_with($hex, '89504E470D0A1A0A'),
-            'jpg', 'jpeg'            => str_starts_with($hex, 'FFD8FF'),
-            'gif'                    => str_starts_with($prefix, 'GIF87a') || str_starts_with($prefix, 'GIF89a'),
-            'webp'                   => substr($prefix, 0, 4) === 'RIFF' && substr($prefix, 8, 4) === 'WEBP',
-            'zip', 'docx', 'xlsx', 'pptx' => str_starts_with($hex, '504B0304') || str_starts_with($hex, '504B0506') || str_starts_with($hex, '504B0708'),
-            'doc', 'xls', 'ppt'      => str_starts_with($hex, 'D0CF11E0A1B11AE1'),
-            'heic'                   => substr($prefix, 4, 4) === 'ftyp' && (bool) preg_match('/(heic|heix|hevc|hevx|mif1|msf1)/', substr($prefix, 8, 24)),
-            'txt', 'csv'             => ! str_contains($prefix, "\0"),
-            default                  => false,
-        };
+        return $crumbs;
     }
 
     private function cleanDate(string $value): ?string
