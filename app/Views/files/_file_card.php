@@ -2,7 +2,6 @@
 use App\Models\ImportantFileModel;
 
 $typeLabel   = ImportantFileModel::typeLabel((string) $f['mime_type'], (string) $f['original_filename']);
-$expiry      = ImportantFileModel::expirationState($f['expires_at'] ?? null);
 $previewKind = ImportantFileModel::previewKind($f);
 $editData    = [
     'id'            => (int) $f['id'],
@@ -11,8 +10,6 @@ $editData    = [
     'category'      => (string) ($f['category'] ?? ''),
     'folder_path'   => (string) ($f['folder_path'] ?? ''),
     'document_date' => (string) ($f['document_date'] ?? ''),
-    'expires_at'    => (string) ($f['expires_at'] ?? ''),
-    'reminder_days' => (int) ($f['reminder_days'] ?? 30),
 ];
 $openData = [
     'id'          => (int) $f['id'],
@@ -41,7 +38,6 @@ $openData = [
     <?php if (! empty($f['description'])): ?><div class="file-desc"><?= esc($f['description']) ?></div><?php endif; ?>
     <div class="file-sub">
       <?php if (! empty($f['category'])): ?><span class="category-tag"><?= esc($f['category']) ?></span><?php endif; ?>
-      <?php if ($expiry): ?><span class="expiry-tag <?= esc($expiry['key']) ?>"><?= esc($expiry['label']) ?></span><?php endif; ?>
       <span class="file-sub-text"><?= ImportantFileModel::formatBytes((int) $f['file_size']) ?> &middot; <?= esc(date('M j, Y', strtotime((string) $f['created_at']))) ?></span>
       <?php if ((int) ($f['download_count'] ?? 0) > 0): ?><span class="file-sub-text"><?= (int) $f['download_count'] ?> download<?= (int) $f['download_count'] === 1 ? '' : 's' ?></span><?php endif; ?>
     </div>

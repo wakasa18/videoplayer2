@@ -27,9 +27,6 @@ class ImportantFileModel extends Model
         'upload_token_hash',
         'status',
         'document_date',
-        'expires_at',
-        'reminder_days',
-        'expiration_reminded_at',
         'is_favorite',
         'download_count',
         'last_downloaded_at',
@@ -53,7 +50,6 @@ class ImportantFileModel extends Model
         'mime_type'         => 'required|max_length[150]',
         'file_size'         => 'required|integer|greater_than[0]',
         'status'            => 'required|in_list[pending,active,deleted,failed]',
-        'reminder_days'     => 'permit_empty|integer|greater_than_equal_to[0]|less_than_equal_to[3650]',
     ];
 
     public function getFilteredActive(array $filters, int $perPage = 10): array
@@ -86,20 +82,6 @@ class ImportantFileModel extends Model
             $this->where('file_extension', $extension);
         }
 
-        $expiry = (string) ($filters['expiry'] ?? '');
-        $today  = date('Y-m-d');
-        $soon   = date('Y-m-d', strtotime('+30 days'));
-
-        if ($expiry === 'expired') {
-            $this->where('expires_at IS NOT NULL', null, false)->where('expires_at <', $today);
-        } elseif ($expiry === 'soon') {
-            $this->where('expires_at IS NOT NULL', null, false)
-                ->where('expires_at >=', $today)
-                ->where('expires_at <=', $soon);
-        } elseif ($expiry === 'none') {
-            $this->where('expires_at IS NULL', null, false);
-        }
-
         if (($filters['favorite'] ?? '') === '1') {
             $this->where('is_favorite', true);
         }
@@ -111,13 +93,8 @@ class ImportantFileModel extends Model
             'name_desc'  => ['title', 'DESC'],
             'size_asc'   => ['file_size', 'ASC'],
             'size_desc'  => ['file_size', 'DESC'],
-            'expires'    => ['expires_at', 'ASC'],
         ];
         [$sortColumn, $sortDirection] = $sortMap[$filters['sort'] ?? 'newest'] ?? $sortMap['newest'];
-
-        if ($sortColumn === 'expires_at') {
-            $this->orderBy('expires_at IS NULL', 'ASC', false);
-        }
 
         $this->orderBy('is_favorite', 'DESC')
             ->orderBy($sortColumn, $sortDirection)
@@ -306,20 +283,6 @@ class ImportantFileModel extends Model
             $this->where('file_extension', $extension);
         }
 
-        $expiry = (string) ($filters['expiry'] ?? '');
-        $today  = date('Y-m-d');
-        $soon   = date('Y-m-d', strtotime('+30 days'));
-
-        if ($expiry === 'expired') {
-            $this->where('expires_at IS NOT NULL', null, false)->where('expires_at <', $today);
-        } elseif ($expiry === 'soon') {
-            $this->where('expires_at IS NOT NULL', null, false)
-                ->where('expires_at >=', $today)
-                ->where('expires_at <=', $soon);
-        } elseif ($expiry === 'none') {
-            $this->where('expires_at IS NULL', null, false);
-        }
-
         if (($filters['favorite'] ?? '') === '1') {
             $this->where('is_favorite', true);
         }
@@ -331,13 +294,8 @@ class ImportantFileModel extends Model
             'name_desc' => ['title', 'DESC'],
             'size_asc'  => ['file_size', 'ASC'],
             'size_desc' => ['file_size', 'DESC'],
-            'expires'   => ['expires_at', 'ASC'],
         ];
         [$sortColumn, $sortDirection] = $sortMap[$filters['sort'] ?? 'name_asc'] ?? $sortMap['name_asc'];
-
-        if ($sortColumn === 'expires_at') {
-            $this->orderBy('expires_at IS NULL', 'ASC', false);
-        }
 
         $this->orderBy('is_favorite', 'DESC')
             ->orderBy($sortColumn, $sortDirection)
@@ -449,14 +407,6 @@ class ImportantFileModel extends Model
             ->findAll();
     }
 
-    public function expirationReminderCandidates(): array
-    {
-        return $this->where('status', 'active')
-            ->where('expires_at IS NOT NULL', null, false)
-            ->orderBy('expires_at', 'ASC')
-            ->findAll();
-    }
-
     public static function formatBytes(int $bytes, int $precision = 1): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -546,27 +496,5 @@ class ImportantFileModel extends Model
         $storageMime = strtolower(trim(explode(';', $storageMime)[0] ?? ''));
         return $storageMime !== '' ? $storageMime : 'application/octet-stream';
     }
-
-    public static function expirationState(?string $expiresAt): ?array
-    {
-        if (! $expiresAt) {
-            return null;
-        }
-
-        $today = new \DateTimeImmutable('today');
-        $date  = new \DateTimeImmutable($expiresAt);
-        $days  = (int) $today->diff($date)->format('%r%a');
-
-        if ($days < 0) {
-            return ['key' => 'expired', 'label' => 'Expired ' . abs($days) . 'd ago'];
-        }
-        if ($days === 0) {
-            return ['key' => 'soon', 'label' => 'Expires today'];
-        }
-        if ($days <= 30) {
-            return ['key' => 'soon', 'label' => 'Expires in ' . $days . 'd'];
-        }
-
-        return ['key' => 'valid', 'label' => 'Expires ' . $date->format('M j, Y')];
-    }
 }
+

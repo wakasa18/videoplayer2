@@ -128,7 +128,6 @@ class Files extends BaseController
             'q'        => trim((string) $this->request->getGet('q')),
             'category' => trim((string) $this->request->getGet('category')),
             'type'     => strtolower(trim((string) $this->request->getGet('type'))),
-            'expiry'   => trim((string) $this->request->getGet('expiry')),
             'favorite' => trim((string) $this->request->getGet('favorite')),
             'sort'     => trim((string) ($this->request->getGet('sort') ?: 'name_asc')),
         ];
@@ -139,8 +138,7 @@ class Files extends BaseController
 
         $hasFileFilters = $filters['q'] !== ''
             || $filters['category'] !== ''
-            || $filters['type'] !== ''
-            || $filters['expiry'] !== '';
+            || $filters['type'] !== '';
 
         return view('files/index', [
             'files'          => $files,
@@ -224,8 +222,6 @@ class Files extends BaseController
             'upload_token_hash' => $tokenHash,
             'status'            => 'pending',
             'document_date'     => $clean['documentDate'],
-            'expires_at'        => $clean['expiresAt'],
-            'reminder_days'     => $clean['reminderDays'],
             'is_favorite'       => false,
         ], true);
 
@@ -842,8 +838,6 @@ class Files extends BaseController
         $folderRaw   = (string) $this->request->getPost('folder_path');
         $folderPath  = $this->cleanFolderPath($folderRaw);
         $document    = $this->cleanDate((string) $this->request->getPost('document_date'));
-        $expires     = $this->cleanDate((string) $this->request->getPost('expires_at'));
-        $reminder    = max(0, min(3650, (int) $this->request->getPost('reminder_days')));
 
         if ($title === '' || mb_strlen($title) > 255 || mb_strlen($description) > 5000 || mb_strlen($category) > 100) {
             return redirect()->to($returnTo)->with('error', 'Please check the title, description, and category lengths.');
@@ -858,9 +852,6 @@ class Files extends BaseController
             'category'               => $category !== '' ? $category : null,
             'folder_path'            => $folderPath,
             'document_date'          => $document,
-            'expires_at'             => $expires,
-            'reminder_days'          => $reminder,
-            'expiration_reminded_at' => $expires === $file['expires_at'] ? $file['expiration_reminded_at'] : null,
         ]);
 
         if (! $updated) {
@@ -1056,7 +1047,6 @@ class Files extends BaseController
         $mimeType    = strtolower(trim(explode(';', (string) ($payload['mimetype'] ?? ''))[0]));
         $fileSize    = (int) ($payload['filesize'] ?? 0);
         $checksum    = strtolower(trim((string) ($payload['checksum'] ?? '')));
-        $reminder    = max(0, min(3650, (int) ($payload['reminderDays'] ?? 30)));
 
         if ($original === '' || mb_strlen($original) > 255) {
             return ['error' => 'The original filename is missing or too long.'];
@@ -1091,8 +1081,6 @@ class Files extends BaseController
             'fileSize'     => $fileSize,
             'checksum'     => $checksum !== '' ? $checksum : null,
             'documentDate' => $this->cleanDate((string) ($payload['documentDate'] ?? '')),
-            'expiresAt'    => $this->cleanDate((string) ($payload['expiresAt'] ?? '')),
-            'reminderDays' => $reminder,
         ];
     }
 
