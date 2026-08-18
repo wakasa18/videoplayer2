@@ -291,6 +291,7 @@ class ImportantFileModel extends Model
                 ->like('title', $query)
                 ->orLike('description', $query)
                 ->orLike('category', $query)
+                ->orLike('folder_path', $query)
                 ->orLike('original_filename', $query)
                 ->groupEnd();
         }

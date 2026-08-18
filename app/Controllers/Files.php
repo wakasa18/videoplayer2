@@ -135,21 +135,31 @@ class Files extends BaseController
 
         $queryModel = new ImportantFileModel();
         $files      = $queryModel->getFolderFiles($currentPath, $filters, 20);
+        $page       = $queryModel->pager->getDetails('files');
+
+        $hasFileFilters = $filters['q'] !== ''
+            || $filters['category'] !== ''
+            || $filters['type'] !== ''
+            || $filters['expiry'] !== '';
 
         return view('files/index', [
-            'files'        => $files,
-            'pager'        => $queryModel->pager,
-            'filters'      => $filters,
-            'currentPath'  => $currentPath,
-            'breadcrumbs'  => $this->buildBreadcrumbs($currentPath),
-            'childFolders' => $filters['favorite'] === '1'
+            'files'          => $files,
+            'pager'          => $queryModel->pager,
+            'page'           => $page,
+            'filters'        => $filters,
+            'hasFileFilters' => $hasFileFilters,
+            'currentPath'    => $currentPath,
+            'breadcrumbs'    => $this->buildBreadcrumbs($currentPath),
+            // Hide unrelated folder cards while file filters are active. The
+            // previous layout could look non-empty even when no files matched.
+            'childFolders'   => ($filters['favorite'] === '1' || $hasFileFilters)
                 ? []
                 : (new ImportantFileModel())->getChildFolders($currentPath),
-            'categories'   => (new ImportantFileModel())->getCategories(),
-            'extensions'   => (new ImportantFileModel())->getExtensions(),
-            'summary'      => (new ImportantFileModel())->getVaultSummary(),
-            'maxBytes'     => $this->maxUploadBytes(),
-            'maxMb'        => (int) ($this->maxUploadBytes() / 1024 / 1024),
+            'categories'     => (new ImportantFileModel())->getCategories(),
+            'extensions'     => (new ImportantFileModel())->getExtensions(),
+            'summary'        => (new ImportantFileModel())->getVaultSummary(),
+            'maxBytes'       => $this->maxUploadBytes(),
+            'maxMb'          => (int) ($this->maxUploadBytes() / 1024 / 1024),
         ]);
     }
 
@@ -820,9 +830,10 @@ class Files extends BaseController
             return redirect()->to('/files/gate');
         }
 
+        $returnTo = $this->vaultReturnPath();
         $file = $this->fileModel->find($id);
         if (! $file || $file['status'] !== 'active') {
-            return redirect()->to('/files')->with('error', 'File not found.');
+            return redirect()->to($returnTo)->with('error', 'File not found.');
         }
 
         $title       = trim((string) $this->request->getPost('title'));
@@ -835,13 +846,13 @@ class Files extends BaseController
         $reminder    = max(0, min(3650, (int) $this->request->getPost('reminder_days')));
 
         if ($title === '' || mb_strlen($title) > 255 || mb_strlen($description) > 5000 || mb_strlen($category) > 100) {
-            return redirect()->to('/files')->with('error', 'Please check the title, description, and category lengths.');
+            return redirect()->to($returnTo)->with('error', 'Please check the title, description, and category lengths.');
         }
         if ($folderPath === false) {
-            return redirect()->to('/files')->with('error', 'The folder path is invalid or too long.');
+            return redirect()->to($returnTo)->with('error', 'The folder path is invalid or too long.');
         }
 
-        $this->fileModel->update($id, [
+        $updated = $this->fileModel->update($id, [
             'title'                  => $title,
             'description'            => $description !== '' ? $description : null,
             'category'               => $category !== '' ? $category : null,
@@ -851,9 +862,14 @@ class Files extends BaseController
             'reminder_days'          => $reminder,
             'expiration_reminded_at' => $expires === $file['expires_at'] ? $file['expiration_reminded_at'] : null,
         ]);
+
+        if (! $updated) {
+            return redirect()->to($returnTo)->with('error', implode(' ', $this->fileModel->errors()) ?: 'File details could not be updated.');
+        }
+
         $this->audit('metadata_updated', $id);
 
-        return redirect()->to('/files')->with('success', 'File details updated.');
+        return redirect()->to($returnTo)->with('success', 'File details updated.');
     }
 
     public function toggleFavorite(int $id): RedirectResponse
@@ -880,19 +896,20 @@ class Files extends BaseController
             return redirect()->to('/files/gate');
         }
 
+        $returnTo = $this->vaultReturnPath();
         $file = $this->fileModel->find($id);
         if (! $file || $file['status'] !== 'active') {
-            return redirect()->to('/files')->with('error', 'File not found.');
+            return redirect()->to($returnTo)->with('error', 'File not found.');
         }
 
         if (! $this->fileModel->markDeleted($id, 30)) {
-            return redirect()->to('/files')->with('error', 'Could not move the file to the Recycle Bin.');
+            return redirect()->to($returnTo)->with('error', 'Could not move the file to the Recycle Bin.');
         }
 
         (new ImportantFileShareModel())->revokeForFile($id);
         $this->audit('file_deleted', $id, ['purge_after_days' => 30, 'share_links_revoked' => true]);
 
-        return redirect()->to('/files')->with('success', 'File moved to the Recycle Bin for 30 days.');
+        return redirect()->to($returnTo)->with('success', 'File moved to the Recycle Bin for 30 days.');
     }
 
     public function restore(int $id): RedirectResponse
@@ -1173,6 +1190,32 @@ class Files extends BaseController
         }
 
         return $crumbs;
+    }
+
+    /**
+     * Keep edit/delete actions in the folder and filter view that opened the
+     * modal. Only the vault index is accepted, preventing open redirects.
+     */
+    private function vaultReturnPath(): string
+    {
+        $value = trim((string) $this->request->getPost('return_to'));
+        if ($value === '') {
+            return '/files';
+        }
+
+        $parts = parse_url($value);
+        if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+            return '/files';
+        }
+
+        $path = '/' . ltrim((string) ($parts['path'] ?? ''), '/');
+        if ($path !== '/files') {
+            return '/files';
+        }
+
+        $query = trim((string) ($parts['query'] ?? ''));
+
+        return $path . ($query !== '' ? '?' . $query : '');
     }
 
     private function cleanDate(string $value): ?string

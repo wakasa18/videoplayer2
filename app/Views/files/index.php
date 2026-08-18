@@ -1,3 +1,21 @@
+<?php
+$pageTotal   = (int) ($page['total'] ?? count($files));
+$pageCurrent = max(1, (int) ($page['currentPage'] ?? 1));
+$pagePerPage = max(1, (int) ($page['perPage'] ?? 20));
+$pageFrom    = $pageTotal > 0 ? (($pageCurrent - 1) * $pagePerPage) + 1 : 0;
+$pageTo      = $pageTotal > 0 ? min($pageTotal, $pageCurrent * $pagePerPage) : 0;
+$clearParams = [];
+if ($currentPath) {
+    $clearParams['path'] = $currentPath;
+}
+if (($filters['favorite'] ?? '') === '1') {
+    $clearParams['favorite'] = '1';
+}
+if (($filters['sort'] ?? 'name_asc') !== 'name_asc') {
+    $clearParams['sort'] = $filters['sort'];
+}
+$clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($clearParams) : '');
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,14 +32,19 @@
   .file-list.grid-view{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.grid-view .file-item{display:block;min-height:180px;padding:14px}.grid-view .file-type-badge{width:100%;height:78px;font-size:15px;margin-bottom:12px;background:linear-gradient(145deg,var(--surface),var(--surface-2))}.grid-view .file-desc{display:none}.grid-view .file-sub{margin-top:10px}.grid-view .action-menu{position:absolute;right:8px;top:8px}.grid-view .original-name{margin-top:5px}
   .action-menu{position:relative;z-index:1;flex:none}.action-menu[open]{z-index:90}.action-menu summary{list-style:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:var(--text-dim);cursor:pointer;font-size:22px}.action-menu summary::-webkit-details-marker{display:none}.action-menu[open] summary,.action-menu summary:hover{background:var(--surface);color:var(--cyan)}.action-menu-panel{position:absolute;right:0;top:38px;z-index:100;width:190px;max-height:min(60vh,360px);overflow-y:auto;background:#10172b;border:1px solid var(--hairline);border-radius:8px;padding:6px;box-shadow:0 15px 35px rgba(0,0,0,.45)}.action-menu.open-up .action-menu-panel{top:auto;bottom:38px}.action-menu-panel form{margin:0}.menu-action{display:block;width:100%;text-align:left;background:transparent;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;padding:9px 10px;border-radius:5px;margin:0}.menu-action:hover{background:var(--surface-2);color:var(--cyan)}.menu-action.danger:hover{color:#ff9aa1;background:rgba(229,99,107,.09)}
   .empty{border:1px dashed var(--hairline);border-radius:8px;padding:28px;text-align:center;color:var(--text-dim);font-size:13px}.pagination{display:flex;gap:6px;list-style:none;padding:0;margin:18px 0 0;flex-wrap:wrap}.pagination a,.pagination span{display:block;padding:7px 10px;border:1px solid var(--hairline);border-radius:5px;color:var(--text-dim);text-decoration:none;font-size:12px}.pagination .active a,.pagination a:hover{color:var(--cyan);border-color:var(--cyan)}
-  select,input[type="number"],input[type="password"]{width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:6px;padding:10px 12px;color:var(--text);font-size:14px;font-family:inherit}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.upload-location{display:flex;align-items:center;gap:7px;margin:-2px 0 12px;padding:8px 10px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface-2);font:10px 'JetBrains Mono',monospace;color:var(--text-dim);overflow:hidden}.upload-location strong{color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dropzone{margin-top:6px;border:1.5px dashed var(--hairline);border-radius:8px;padding:20px 14px;text-align:center;background:var(--surface-2);transition:.15s}.dropzone.drag{border-color:var(--cyan);background:rgba(95,217,232,.08);transform:scale(1.01)}.dropzone p{margin:0 0 10px;font-size:13px;color:var(--text-dim)}.upload-pickers{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.picker-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:120px;padding:9px 12px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:.15s}.picker-button:hover{border-color:var(--cyan);color:var(--cyan);transform:translateY(-1px)}.picker-button.folder{color:var(--gold)}.picker-button.folder:hover{border-color:var(--gold)}.upload-input-hidden{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;clip-path:inset(50%)!important}.selection-summary{margin-top:9px;font:10px 'JetBrains Mono',monospace;color:var(--text-dim)}.file-hint{font-size:11px;color:var(--text-dim);line-height:1.5}.selected-files{display:flex;flex-direction:column;gap:5px;margin:9px 0}.selected-file{display:flex;justify-content:space-between;gap:10px;font-size:11px;background:var(--surface-2);border:1px solid var(--hairline);padding:7px 9px;border-radius:5px}.selected-file-info{min-width:0}.selected-file-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.selected-file-path{display:block;margin-top:2px;font:9px 'JetBrains Mono',monospace;color:#677394;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.selected-file strong{flex:none}.progress-wrap{height:7px;background:var(--surface-2);border-radius:5px;overflow:hidden;margin:10px 0}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .15s}.upload-actions{display:flex;gap:8px}.upload-actions .btn-primary{margin-top:12px}.btn-secondary{margin-top:12px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--text-dim)}.btn-secondary:hover{color:var(--text);border-color:var(--cyan)}
+  select,input[type="number"],input[type="password"]{width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:6px;padding:10px 12px;color:var(--text);font-size:14px;font-family:inherit}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.upload-location{display:flex;align-items:center;gap:7px;margin:-2px 0 12px;padding:8px 10px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface-2);font:10px 'JetBrains Mono',monospace;color:var(--text-dim);overflow:hidden}.upload-location strong{color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dropzone{margin-top:6px;border:1.5px dashed var(--hairline);border-radius:8px;padding:20px 14px;text-align:center;background:var(--surface-2);transition:.15s}.dropzone.drag,.dropzone.attention{border-color:var(--cyan);background:rgba(95,217,232,.08);transform:scale(1.01);box-shadow:0 0 0 3px rgba(95,217,232,.08)}.dropzone p{margin:0 0 10px;font-size:13px;color:var(--text-dim)}.upload-pickers{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.picker-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:120px;padding:9px 12px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:.15s}.picker-button:hover{border-color:var(--cyan);color:var(--cyan);transform:translateY(-1px)}.picker-button.folder{color:var(--gold)}.picker-button.folder:hover{border-color:var(--gold)}.upload-input-hidden{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;clip-path:inset(50%)!important}.selection-summary{margin-top:9px;font:10px 'JetBrains Mono',monospace;color:var(--text-dim)}.file-hint{font-size:11px;color:var(--text-dim);line-height:1.5}.selected-files{display:flex;flex-direction:column;gap:5px;margin:9px 0}.selected-file{display:flex;justify-content:space-between;gap:10px;font-size:11px;background:var(--surface-2);border:1px solid var(--hairline);padding:7px 9px;border-radius:5px}.selected-file-info{min-width:0}.selected-file-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.selected-file-path{display:block;margin-top:2px;font:9px 'JetBrains Mono',monospace;color:#677394;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.selected-file strong{flex:none}.progress-wrap{height:7px;background:var(--surface-2);border-radius:5px;overflow:hidden;margin:10px 0}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .15s}.upload-actions{display:flex;gap:8px}.upload-actions .btn-primary{margin-top:12px}.btn-secondary{margin-top:12px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--text-dim)}.btn-secondary:hover{color:var(--text);border-color:var(--cyan)}
   .modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,4,10,.84);backdrop-filter:blur(5px)}.modal.open{display:flex}.modal-card{width:min(620px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.6)}.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.modal-head h2{margin:0}.modal-close{background:transparent;color:var(--text-dim);font-size:22px;padding:4px 8px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.modal-actions button{width:auto;margin:0}.danger-button{background:var(--red);color:white}.danger-button:hover{filter:brightness(1.08)}
   .share-help{margin:-4px 0 14px;color:var(--text-dim);font-size:12px;line-height:1.55}.share-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}.share-result{margin-top:16px;padding:13px;border:1px solid rgba(95,217,232,.35);border-radius:8px;background:rgba(95,217,232,.07)}.share-result[hidden]{display:none}.share-result-label{font:9px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:7px}.share-link-row{display:flex;gap:7px}.share-link-row input{min-width:0;flex:1;font:10px 'JetBrains Mono',monospace}.share-copy{flex:none;padding:9px 12px;background:var(--cyan);color:#061019}.share-once{margin:7px 0 0;color:var(--text-dim);font-size:10px}.share-list-title{margin:20px 0 8px;font:10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim)}.share-list{display:flex;flex-direction:column;gap:7px}.share-list-empty{padding:12px;border:1px dashed var(--hairline);border-radius:7px;color:var(--text-dim);font-size:11px;text-align:center}.share-row-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--hairline);border-radius:7px;background:var(--surface-2)}.share-row-main{min-width:0}.share-row-line{font-size:11px;color:var(--text);line-height:1.45}.share-row-meta{margin-top:3px;font:9px 'JetBrains Mono',monospace;color:var(--text-dim)}.share-status{display:inline-block;margin-right:6px;padding:2px 6px;border:1px solid var(--hairline);border-radius:20px;font:8px 'JetBrains Mono',monospace;text-transform:uppercase}.share-status.active{color:#b9f0da;border-color:rgba(92,211,153,.4)}.share-status.expired,.share-status.used{color:var(--gold);border-color:rgba(242,195,107,.4)}.share-status.revoked{color:#ff9aa1;border-color:rgba(229,99,107,.45)}.share-revoke{padding:7px 9px;border:1px solid rgba(229,99,107,.35);background:transparent;color:#ff9aa1;font-size:10px}.share-revoke:disabled{opacity:.4}.share-loading{padding:12px;color:var(--text-dim);font-size:11px;text-align:center}
   .folder-download-card{width:min(520px,100%);text-align:center}.folder-download-symbol{width:72px;height:82px;margin:0 auto 14px;border:1px solid var(--hairline);border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font:700 15px 'JetBrains Mono',monospace;color:var(--cyan)}.folder-download-card h2{margin:0 0 7px}.folder-download-card p{margin:0;color:var(--text-dim);font-size:12px;line-height:1.55}.folder-download-progress{height:9px;margin:18px 0 8px;border-radius:8px;overflow:hidden;background:var(--surface-2);border:1px solid var(--hairline)}.folder-download-progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .15s}.folder-download-stats{display:flex;justify-content:space-between;gap:10px;font:10px 'JetBrains Mono',monospace;color:var(--text-dim)}.folder-download-note{margin-top:10px!important;color:var(--gold)!important}.folder-download-actions{display:flex;justify-content:center;gap:8px;margin-top:18px}.folder-download-actions button{width:auto;margin:0}.folder-download-actions .btn-primary{padding:10px 18px}.folder-download-actions .btn-secondary{padding:10px 18px}
   .drive-preview{padding:10px}.drive-preview-card{width:min(1280px,100%);height:min(92vh,900px);display:flex;flex-direction:column;background:#0c1222;border:1px solid var(--hairline);border-radius:12px;overflow:hidden;box-shadow:0 28px 90px rgba(0,0,0,.65)}.preview-topbar{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--hairline);background:#11182a}.preview-nav{display:flex;gap:5px}.preview-nav button,.preview-top-action{height:34px;min-width:34px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--text-dim);padding:0 10px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-size:12px}.preview-nav button:hover,.preview-top-action:hover{color:var(--cyan);border-color:var(--cyan)}.preview-nav button:disabled{opacity:.35;pointer-events:none}.preview-heading{min-width:0;flex:1}.preview-heading strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.preview-heading span{display:block;font:9px 'JetBrains Mono',monospace;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.preview-body{display:grid;grid-template-columns:minmax(0,1fr) 290px;min-height:0;flex:1}.preview-stage{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;background:#080c15;overflow:auto}.preview-stage iframe{width:100%;height:100%;border:0;background:#fff}.preview-stage img{display:block;max-width:100%;max-height:100%;object-fit:contain}.preview-stage video{display:block;max-width:100%;max-height:100%;background:#000}.audio-preview,.unsupported-preview{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px;color:var(--text-dim)}.audio-preview .big-file-icon,.unsupported-preview .big-file-icon{width:100px;height:112px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font:700 18px 'JetBrains Mono',monospace;color:var(--cyan)}.audio-preview audio{width:min(520px,85vw)}.unsupported-preview h3{margin:0;color:var(--text)}.unsupported-preview p{max-width:460px;margin:0;line-height:1.6}.preview-loader{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#080c15;color:var(--text-dim);font-size:12px}.preview-loader[hidden]{display:none}.preview-spinner{width:30px;height:30px;border:3px solid #26314b;border-top-color:var(--cyan);border-radius:50%;animation:spinSlow .8s linear infinite}.preview-info{border-left:1px solid var(--hairline);padding:18px;overflow:auto;background:#101626}.preview-info h3{margin:0 0 14px}.detail-row{margin-bottom:14px}.detail-label{display:block;font:9px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:4px}.detail-value{font-size:12px;color:var(--text);word-break:break-word;line-height:1.5}.preview-info-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px}.preview-info-actions a{margin:0;text-align:center;text-decoration:none;padding:9px 8px;border-radius:6px;font-size:11px}.primary-link{background:var(--cyan);color:#061019}.secondary-link{border:1px solid var(--hairline);color:var(--text-dim)}
-  @media(max-width:1050px){.filters{grid-template-columns:1fr 1fr 1fr}.layout{grid-template-columns:1fr}.folder-grid,.file-list.grid-view{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .drive-actions{display:flex;align-items:center;gap:7px;flex:none}.quick-upload{height:32px;padding:0 11px;border:1px solid rgba(95,217,232,.4);background:rgba(95,217,232,.08);color:var(--cyan);font:600 10px 'JetBrains Mono',monospace}.quick-upload:hover{border-color:var(--cyan);background:rgba(95,217,232,.14)}
+  .filter-state{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-3px 0 14px;padding:10px 12px;border:1px solid rgba(95,217,232,.25);border-radius:8px;background:rgba(95,217,232,.055)}.filter-state-copy{min-width:0;font-size:11px;color:var(--text-dim)}.filter-state-copy strong{color:var(--text)}.clear-filter-link{flex:none;color:var(--cyan);font:600 10px 'JetBrains Mono',monospace;text-decoration:none;padding:6px 8px;border:1px solid rgba(95,217,232,.3);border-radius:5px}.clear-filter-link:hover{border-color:var(--cyan)}
+  .result-count strong{color:var(--text)}.empty-title{display:block;color:var(--text);font-size:15px;margin-bottom:5px}.empty-copy{display:block;line-height:1.55}.empty-actions{display:flex;justify-content:center;gap:8px;margin-top:14px}.empty-action{width:auto;margin:0;padding:8px 11px;border:1px solid var(--hairline);background:var(--surface-2);color:var(--text-dim);font-size:11px}.empty-action:hover{color:var(--cyan);border-color:var(--cyan)}
+  .upload-panel{position:sticky;top:18px;align-self:start}.upload-panel.upload-attention{animation:uploadPulse .75s ease}@keyframes uploadPulse{0%,100%{box-shadow:0 1px 0 rgba(255,255,255,.02) inset}45%{box-shadow:0 0 0 3px rgba(95,217,232,.18),0 16px 38px rgba(0,0,0,.35)}}
+  .selected-files{max-height:290px;overflow:auto;padding-right:2px}.selected-file{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;position:relative}.selected-file.status-uploading,.selected-file.status-finalizing,.selected-file.status-hashing{border-color:rgba(95,217,232,.45)}.selected-file.status-done{border-color:rgba(92,211,153,.38);background:rgba(92,211,153,.055)}.selected-file.status-error{border-color:rgba(229,99,107,.48);background:rgba(229,99,107,.055)}.selected-file-copy{min-width:0;flex:1}.selected-file-side{display:flex;align-items:center;gap:7px;flex:none}.upload-file-status{font:8px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);white-space:nowrap}.status-done .upload-file-status{color:#9de2c2}.status-error .upload-file-status{color:#ff9aa1}.status-uploading .upload-file-status,.status-finalizing .upload-file-status,.status-hashing .upload-file-status{color:var(--cyan)}.selected-file-remove{width:25px;height:25px;padding:0;border:1px solid transparent;background:transparent;color:var(--text-dim);font-size:16px;line-height:1}.selected-file-remove:hover{color:var(--red);border-color:rgba(229,99,107,.35)}.selected-file-remove:disabled{opacity:.25;cursor:not-allowed}.selected-file-progress{grid-column:1/-1;height:3px;border-radius:4px;background:#202a45;overflow:hidden;margin-top:6px}.selected-file-progress span{display:block;width:0;height:100%;background:var(--cyan);transition:width .12s}.selected-file-error{display:block;margin-top:3px;color:#ff9aa1;font-size:9px;white-space:normal}.upload-summary-success{color:#9de2c2}.upload-summary-error{color:#ff9aa1}
+  @media(max-width:1050px){.filters{grid-template-columns:1fr 1fr 1fr}.layout{grid-template-columns:1fr}.upload-panel{position:static}.folder-grid,.file-list.grid-view{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media(max-width:760px){.summary-strip{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}.folder-grid{grid-template-columns:1fr 1fr}.file-list.grid-view{grid-template-columns:1fr 1fr}.preview-body{grid-template-columns:1fr}.preview-info{display:none}.drive-preview-card{height:94vh}.preview-top-action.open-new{display:none}}
-  @media(max-width:520px){.filters,.folder-grid,.file-list.grid-view,.form-grid,.share-options{grid-template-columns:1fr}.drive-bar{align-items:flex-start}.panel-head{align-items:flex-start;flex-direction:column}.panel-head-actions{width:100%;justify-content:space-between}.file-item{padding:10px}.grid-view .file-item{min-height:160px}.preview-topbar{gap:5px}.preview-heading span{display:none}.share-link-row{display:grid;grid-template-columns:1fr}.share-copy{width:100%}}
+  @media(max-width:520px){.filters,.folder-grid,.file-list.grid-view,.form-grid,.share-options{grid-template-columns:1fr}.drive-bar{align-items:flex-start}.drive-actions{width:100%;justify-content:flex-end}.filter-state{align-items:flex-start}.empty-actions{flex-direction:column}.empty-action{width:100%}.panel-head{align-items:flex-start;flex-direction:column}.panel-head-actions{width:100%;justify-content:space-between}.file-item{padding:10px}.grid-view .file-item{min-height:160px}.preview-topbar{gap:5px}.preview-heading span{display:none}.share-link-row{display:grid;grid-template-columns:1fr}.share-copy{width:100%}}
 </style>
 </head>
 <body>
@@ -49,7 +72,7 @@
       <a class="breadcrumb-link <?= $currentPath === null ? 'current' : '' ?>" href="<?= base_url('files') ?>">My Drive</a>
       <?php foreach ($breadcrumbs as $index => $crumb): ?><span class="breadcrumb-sep">/</span><a class="breadcrumb-link <?= $index === count($breadcrumbs)-1 ? 'current' : '' ?>" href="<?= base_url('files') . '?path=' . rawurlencode($crumb['path']) ?>"><?= esc($crumb['label']) ?></a><?php endforeach; ?>
     </nav>
-    <div class="view-switch" aria-label="View style"><button type="button" class="view-button active" id="listViewBtn" title="List view">☰</button><button type="button" class="view-button" id="gridViewBtn" title="Grid view">▦</button></div>
+    <div class="drive-actions"><button type="button" class="quick-upload" id="quickUploadBtn">+ Upload</button><div class="view-switch" aria-label="View style"><button type="button" class="view-button active" id="listViewBtn" title="List view">☰</button><button type="button" class="view-button" id="gridViewBtn" title="Grid view">▦</button></div></div>
   </div>
 
   <form class="filters panel" id="filterForm" method="get" action="<?= base_url('files') ?>">
@@ -60,13 +83,19 @@
     <div><label for="filterSort">Sort</label><select id="filterSort" name="sort"><option value="name_asc" <?= $filters['sort']==='name_asc'?'selected':'' ?>>Name A–Z</option><option value="name_desc" <?= $filters['sort']==='name_desc'?'selected':'' ?>>Name Z–A</option><option value="newest" <?= $filters['sort']==='newest'?'selected':'' ?>>Newest</option><option value="oldest" <?= $filters['sort']==='oldest'?'selected':'' ?>>Oldest</option><option value="size_desc" <?= $filters['sort']==='size_desc'?'selected':'' ?>>Largest</option><option value="size_asc" <?= $filters['sort']==='size_asc'?'selected':'' ?>>Smallest</option><option value="expires" <?= $filters['sort']==='expires'?'selected':'' ?>>Expiration</option></select></div>
     <input type="hidden" name="path" value="<?= esc((string) ($currentPath ?? ''), 'attr') ?>"><input type="hidden" name="favorite" value="<?= esc($filters['favorite'], 'attr') ?>">
   </form>
+  <?php if ($hasFileFilters): ?>
+    <div class="filter-state" role="status">
+      <div class="filter-state-copy"><strong><?= number_format($pageTotal) ?> matching file<?= $pageTotal === 1 ? '' : 's' ?></strong> in <?= esc($currentPath ?: 'My Drive') ?>. Folder cards are hidden while filters are active.</div>
+      <a class="clear-filter-link" href="<?= esc($clearFilterUrl, 'attr') ?>">Clear filters</a>
+    </div>
+  <?php endif; ?>
 
   <div class="layout">
     <section class="panel">
       <div class="panel-head">
         <h2><?= $currentPath ? esc(basename(str_replace('\\', '/', $currentPath))) : 'My Drive' ?></h2>
         <div class="panel-head-actions">
-          <span class="result-count"><?= count($childFolders) ?> folder<?= count($childFolders) === 1 ? '' : 's' ?> · <?= count($files) ?> file<?= count($files) === 1 ? '' : 's' ?></span>
+          <span class="result-count"><?php if ($pageTotal > 0): ?><strong><?= number_format($pageFrom) ?>–<?= number_format($pageTo) ?></strong> of <?= number_format($pageTotal) ?> files<?php else: ?>0 files<?php endif; ?><?php if (! $hasFileFilters && $filters['favorite'] !== '1'): ?> · <?= count($childFolders) ?> folder<?= count($childFolders) === 1 ? '' : 's' ?><?php endif; ?></span>
           <?php if ($currentPath): ?><button type="button" class="folder-main-action js-share-folder" data-folder-path="<?= esc((string) $currentPath, 'attr') ?>" data-folder-name="<?= esc(basename(str_replace('\\', '/', $currentPath)), 'attr') ?>">&#8599; Share folder</button><?php endif; ?>
           <button type="button" class="folder-main-action js-download-folder" data-folder-path="<?= esc((string) ($currentPath ?? ''), 'attr') ?>" data-folder-name="<?= esc($currentPath ? basename(str_replace('\\', '/', $currentPath)) : 'Important Files', 'attr') ?>">&#8681; <?= $currentPath ? 'Download folder' : 'Download all' ?></button>
         </div>
@@ -85,12 +114,18 @@
         </div>
       <?php endif; ?>
       <?php if ($files !== []): ?><p class="section-label">Files</p><?php endif; ?>
-      <div id="emptyState" class="empty" <?= ($files !== [] || $childFolders !== []) ? 'style="display:none"' : '' ?>>This folder is empty. Upload files or a folder to add content.</div>
+      <div id="emptyState" class="empty" <?= ($files !== [] || $childFolders !== []) ? 'style="display:none"' : '' ?>>
+        <?php if ($hasFileFilters): ?>
+          <span class="empty-title">No files match these filters</span><span class="empty-copy">Try a different search, file type, category, or expiration filter.</span><div class="empty-actions"><a class="empty-action" href="<?= esc($clearFilterUrl, 'attr') ?>">Clear filters</a></div>
+        <?php else: ?>
+          <span class="empty-title">This folder is empty</span><span class="empty-copy">Upload individual files or choose a whole folder while keeping its structure.</span><div class="empty-actions"><button type="button" class="empty-action js-focus-upload">Upload files</button></div>
+        <?php endif; ?>
+      </div>
       <ul class="file-list" id="fileList"><?php foreach ($files as $f): ?><?= view('files/_file_card', ['f' => $f]) ?><?php endforeach; ?></ul>
       <?= $pager->links('files') ?>
     </section>
 
-    <aside class="panel">
+    <aside class="panel upload-panel" id="uploadPanel">
       <h2>Add to Vault</h2>
       <div class="upload-location">Upload location: <strong><?= esc($currentPath ?: 'My Drive') ?></strong></div>
       <form id="uploadForm">
@@ -108,7 +143,7 @@
           <div class="selection-summary" id="selectionSummary">Nothing selected</div>
         </div>
         <p class="file-hint">All file extensions are accepted, up to <?= (int) $maxMb ?> MB per file. PDF, images, audio, video, and text/code files can be previewed. Other formats can still be opened in the viewer and downloaded.</p>
-        <div class="selected-files" id="selectedFiles"></div><div id="uploadStatus" class="file-hint" style="display:none"></div><div id="progressWrap" class="progress-wrap" style="display:none"><div id="progressBar" class="progress-bar"></div></div>
+        <div class="selected-files" id="selectedFiles"></div><div id="uploadStatus" class="file-hint" style="display:none" role="status" aria-live="polite"></div><div id="progressWrap" class="progress-wrap" style="display:none"><div id="progressBar" class="progress-bar"></div></div>
         <div class="upload-actions"><button type="submit" class="btn-primary" id="uploadBtn">Add to vault</button><button type="button" class="btn-secondary" id="cancelBtn" style="display:none">Cancel</button></div>
       </form>
     </aside>
@@ -116,8 +151,8 @@
 </div>
 
 <div class="modal drive-preview" id="previewModal" aria-hidden="true"><div class="drive-preview-card"><div class="preview-topbar"><div class="preview-nav"><button type="button" id="previewPrev" aria-label="Previous file">&#8592;</button><button type="button" id="previewNext" aria-label="Next file">&#8594;</button></div><div class="preview-heading"><strong id="previewTitle">File</strong><span id="previewFilename"></span></div><a class="preview-top-action open-new" id="previewOpenLink" href="#" target="_blank" rel="noopener">Open tab</a><a class="preview-top-action" id="previewDownloadTop" href="#" target="_blank" rel="noopener">Download</a><button class="preview-top-action" type="button" data-close-modal aria-label="Close">&#10005;</button></div><div class="preview-body"><div class="preview-stage" id="previewStage"><div class="preview-loader" id="previewLoading"><span class="preview-spinner"></span><span>Loading secure preview…</span></div></div><aside class="preview-info"><h3>File details</h3><div class="detail-row"><span class="detail-label">Name</span><div class="detail-value" id="detailName"></div></div><div class="detail-row"><span class="detail-label">Location</span><div class="detail-value" id="detailFolder"></div></div><div class="detail-row"><span class="detail-label">Type</span><div class="detail-value" id="detailType"></div></div><div class="detail-row"><span class="detail-label">Size</span><div class="detail-value" id="detailSize"></div></div><div class="detail-row"><span class="detail-label">Added</span><div class="detail-value" id="detailDate"></div></div><div class="detail-row"><span class="detail-label">Description</span><div class="detail-value" id="detailDescription"></div></div><div class="preview-info-actions"><a class="primary-link" id="previewDownloadSide" href="#" target="_blank" rel="noopener">Download</a><a class="secondary-link" id="previewOpenSide" href="#" target="_blank" rel="noopener">Open tab</a></div></aside></div></div></div>
-<div class="modal" id="editModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Edit file details</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><form id="editForm" method="post"><?= csrf_field() ?><label for="editTitle">Title</label><input id="editTitle" name="title" type="text" maxlength="255" required><label for="editDescription">Description</label><textarea id="editDescription" name="description" rows="3" maxlength="5000"></textarea><label for="editCategory">Category</label><input id="editCategory" name="category" type="text" maxlength="100"><label for="editFolderPath">Folder</label><input id="editFolderPath" name="folder_path" type="text" maxlength="1000" placeholder="Folder/Subfolder"><div class="form-grid"><div><label for="editDocumentDate">Document date</label><input id="editDocumentDate" name="document_date" type="date"></div><div><label for="editExpiresAt">Expiration date</label><input id="editExpiresAt" name="expires_at" type="date"></div></div><label for="editReminderDays">Reminder days</label><input id="editReminderDays" name="reminder_days" type="number" min="0" max="3650" value="30"><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary">Save changes</button></div></form></div></div>
-<div class="modal" id="deleteModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Move to Recycle Bin?</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><p id="deleteMessage" class="file-hint"></p><form id="deleteForm" method="post"><?= csrf_field() ?><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="danger-button">Move file</button></div></form></div></div>
+<div class="modal" id="editModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Edit file details</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><form id="editForm" method="post"><?= csrf_field() ?><input type="hidden" name="return_to" id="editReturnTo"><label for="editTitle">Title</label><input id="editTitle" name="title" type="text" maxlength="255" required><label for="editDescription">Description</label><textarea id="editDescription" name="description" rows="3" maxlength="5000"></textarea><label for="editCategory">Category</label><input id="editCategory" name="category" type="text" maxlength="100"><label for="editFolderPath">Folder</label><input id="editFolderPath" name="folder_path" type="text" maxlength="1000" placeholder="Folder/Subfolder"><div class="form-grid"><div><label for="editDocumentDate">Document date</label><input id="editDocumentDate" name="document_date" type="date"></div><div><label for="editExpiresAt">Expiration date</label><input id="editExpiresAt" name="expires_at" type="date"></div></div><label for="editReminderDays">Reminder days</label><input id="editReminderDays" name="reminder_days" type="number" min="0" max="3650" value="30"><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary">Save changes</button></div></form></div></div>
+<div class="modal" id="deleteModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Move to Recycle Bin?</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><p id="deleteMessage" class="file-hint"></p><form id="deleteForm" method="post"><?= csrf_field() ?><input type="hidden" name="return_to" id="deleteReturnTo"><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="danger-button">Move file</button></div></form></div></div>
 <div class="modal" id="shareModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2 id="shareModalTitle">Share file</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><p class="share-help" id="shareHelp">Create a private link that works without signing in. Anyone who receives the link can open or download the selected item until the link expires or you disable it.</p><form id="shareForm"><div class="share-options"><div><label for="shareDuration">Link expiration</label><select id="shareDuration"><option value="1d">1 day</option><option value="7d" selected>7 days</option><option value="30d">30 days</option><option value="90d">90 days</option><option value="never">Never</option></select></div><div><label for="shareMaxDownloads">Download limit</label><input id="shareMaxDownloads" type="number" min="0" max="10000" value="0"><p class="file-hint" style="margin:5px 0 0">Use 0 for unlimited.</p></div></div><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary" id="shareCreateBtn">Create link</button></div></form><div class="share-result" id="shareResult" hidden><div class="share-result-label">New share link</div><div class="share-link-row"><input id="shareLinkInput" type="text" readonly><button type="button" class="share-copy" id="shareCopyBtn">Copy</button></div><p class="share-once" id="shareResultNote">For security, copy this link now. The complete token is only displayed when the link is created.</p></div><div class="share-list-title">Link history</div><div class="share-list" id="shareList"><div class="share-loading">Loading links…</div></div></div></div>
 <div class="modal" id="folderDownloadModal" aria-hidden="true" data-static="true">
   <div class="modal-card folder-download-card">
@@ -139,31 +174,546 @@
 const CSRF_HEADER=<?= json_encode(csrf_header()) ?>,CSRF_HASH=<?= json_encode(csrf_hash()) ?>,MAX_BYTES=<?= (int) $maxBytes ?>,CURRENT_PATH=<?= json_encode((string) ($currentPath ?? '')) ?>;
 const uploadForm=document.getElementById('uploadForm'),fileInput=document.getElementById('fileInput'),folderInput=document.getElementById('folderInput'),selectionSummary=document.getElementById('selectionSummary'),dropzone=document.getElementById('dropzone'),selectedFiles=document.getElementById('selectedFiles'),uploadStatus=document.getElementById('uploadStatus'),progressWrap=document.getElementById('progressWrap'),progressBar=document.getElementById('progressBar'),uploadBtn=document.getElementById('uploadBtn'),cancelBtn=document.getElementById('cancelBtn');
 const shareModal=document.getElementById('shareModal'),shareForm=document.getElementById('shareForm'),shareModalTitle=document.getElementById('shareModalTitle'),shareHelp=document.getElementById('shareHelp'),shareDuration=document.getElementById('shareDuration'),shareMaxDownloads=document.getElementById('shareMaxDownloads'),shareCreateBtn=document.getElementById('shareCreateBtn'),shareResult=document.getElementById('shareResult'),shareLinkInput=document.getElementById('shareLinkInput'),shareCopyBtn=document.getElementById('shareCopyBtn'),shareResultNote=document.getElementById('shareResultNote'),shareList=document.getElementById('shareList');let currentShareTarget=null;
-let currentXhr=null,currentToken=null,cancelled=false,selectedUploadFiles=[],skippedSelectionCount=0;
-function formatBytes(bytes){const u=['B','KB','MB','GB','TB'];let i=0,n=Number(bytes)||0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return(i?n.toFixed(1):Math.round(n))+' '+u[i];}
-function baseTitle(name){return name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim()||name;}
-function setStatus(message,error=false){uploadStatus.style.display='block';uploadStatus.textContent=message;uploadStatus.style.color=error?'var(--red)':'var(--text-dim)';}
-function relativePath(file){return String(file.webkitRelativePath||file.name).replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');}
-function selectedFolder(file){const path=relativePath(file),cut=path.lastIndexOf('/'),inside=cut>0?path.slice(0,cut):'';return[CURRENT_PATH,inside].filter(Boolean).join('/');}
-function chooseUploadFiles(fileList,source='files'){const all=[...fileList],valid=all.filter(file=>file.size>0&&file.size<=MAX_BYTES);skippedSelectionCount=all.length-valid.length;selectedUploadFiles=valid;renderSelectedFiles(source);}
-function renderSelectedFiles(source){selectedFiles.innerHTML='';selectedUploadFiles.slice(0,10).forEach(file=>{const row=document.createElement('div');row.className='selected-file';row.innerHTML='<span class="selected-file-info"><span class="selected-file-name"></span><span class="selected-file-path"></span></span><strong></strong>';row.querySelector('.selected-file-name').textContent=file.name;row.querySelector('.selected-file-path').textContent=selectedFolder(file)||'My Drive';row.querySelector('strong').textContent=formatBytes(file.size);selectedFiles.appendChild(row);});if(selectedUploadFiles.length>10){const more=document.createElement('div');more.className='file-hint';more.textContent='+'+(selectedUploadFiles.length-10)+' more files selected';selectedFiles.appendChild(more);}let text=selectedUploadFiles.length+' file'+(selectedUploadFiles.length===1?'':'s')+' selected';if(source==='folder')text+=' with folder structure';if(skippedSelectionCount)text+=' · '+skippedSelectionCount+' empty or oversized skipped';selectionSummary.textContent=selectedUploadFiles.length?text:'Nothing selected';}
-fileInput.addEventListener('change',()=>chooseUploadFiles(fileInput.files,'files'));folderInput.addEventListener('change',()=>chooseUploadFiles(folderInput.files,'folder'));['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.add('drag');}));['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.remove('drag');}));dropzone.addEventListener('drop',e=>{if(e.dataTransfer.files.length)chooseUploadFiles(e.dataTransfer.files,'files');});
-async function fetchJson(url,options={}){options.headers=Object.assign({'Content-Type':'application/json',[CSRF_HEADER]:CSRF_HASH},options.headers||{});const res=await fetch(url,options),text=await res.text();let data={};try{data=JSON.parse(text);}catch(e){throw new Error(res.status===403?'Your security token expired. Refresh the page and try again.':'The server returned an unexpected response.');}if(!res.ok)throw new Error(data.error||'Request failed.');return data;}
-function formatShareDate(value){if(!value)return'No expiration';const date=new Date(String(value).replace(' ','T'));return Number.isFinite(date.getTime())?date.toLocaleString():value;}
-function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));}
-function renderShareRows(rows){if(!Array.isArray(rows)||rows.length===0){shareList.innerHTML='<div class="share-list-empty">No share links have been created for this '+escapeHtml(currentShareTarget?.type||'item')+'.</div>';return;}shareList.innerHTML=rows.map(row=>{const active=row.status==='active',limit=row.maxDownloads?row.downloadCount+' / '+row.maxDownloads+' downloads':row.downloadCount+' downloads',expires=row.expiresAt?'Expires '+formatShareDate(row.expiresAt):'No expiration';return'<div class="share-row-item"><div class="share-row-main"><div class="share-row-line"><span class="share-status '+escapeHtml(row.status)+'">'+escapeHtml(row.statusLabel)+'</span>'+escapeHtml(expires)+'</div><div class="share-row-meta">'+escapeHtml(limit)+' · '+Number(row.viewCount||0)+' views · created '+escapeHtml(formatShareDate(row.createdAt))+'</div></div><button type="button" class="share-revoke js-revoke-share" data-share-record-id="'+Number(row.id)+'" '+(active?'':'disabled')+'>'+(active?'Disable':'Disabled')+'</button></div>';}).join('');}
-function shareEndpoint(){if(!currentShareTarget)return'';return currentShareTarget.type==='folder'?<?= json_encode(base_url('files/folder-shares')) ?>:<?= json_encode(base_url('files')) ?>+'/'+currentShareTarget.id+'/shares';}
-async function loadShareRows(){if(!currentShareTarget)return;shareList.innerHTML='<div class="share-loading">Loading links…</div>';try{let url=shareEndpoint();if(currentShareTarget.type==='folder')url+='?path='+encodeURIComponent(currentShareTarget.path);const data=await fetchJson(url,{method:'GET'});renderShareRows(data.shares||[]);}catch(error){shareList.innerHTML='<div class="share-list-empty">'+escapeHtml(error.message||'Could not load share links.')+'</div>';}}
-async function openShareModal(button){const folder=button.classList.contains('js-share-folder');currentShareTarget=folder?{type:'folder',path:button.dataset.folderPath||'',name:button.dataset.folderName||'folder'}:{type:'file',id:Number(button.dataset.shareId||0),name:button.dataset.shareTitle||'file'};shareModalTitle.textContent='Share “'+currentShareTarget.name+'”';shareHelp.textContent=folder?'Anyone with the link can browse this folder, open its files and subfolders, and download the folder as a ZIP.':'Anyone with the link can open or download only this file.';shareDuration.value='7d';shareMaxDownloads.value='0';shareResult.hidden=true;shareLinkInput.value='';shareCopyBtn.textContent='Copy';shareResultNote.textContent='For security, copy this link now. The complete token is only displayed when the link is created.';openModal(shareModal);await loadShareRows();}
-shareForm.addEventListener('submit',async event=>{event.preventDefault();if(!currentShareTarget)return;shareCreateBtn.disabled=true;shareCreateBtn.textContent='Creating…';try{const body={duration:shareDuration.value,maxDownloads:Number(shareMaxDownloads.value||0)};if(currentShareTarget.type==='folder')body.path=currentShareTarget.path;const data=await fetchJson(shareEndpoint(),{method:'POST',body:JSON.stringify(body)});shareLinkInput.value=data.shareUrl||'';shareResult.hidden=false;shareCopyBtn.textContent='Copy';shareResultNote.textContent=data.message||'Copy this link now.';await loadShareRows();shareLinkInput.focus();shareLinkInput.select();}catch(error){alert(error.message||'Could not create the share link.');}finally{shareCreateBtn.disabled=false;shareCreateBtn.textContent='Create link';}});
-shareCopyBtn.addEventListener('click',async()=>{if(!shareLinkInput.value)return;try{await navigator.clipboard.writeText(shareLinkInput.value);shareCopyBtn.textContent='Copied';}catch(error){shareLinkInput.focus();shareLinkInput.select();document.execCommand('copy');shareCopyBtn.textContent='Copied';}setTimeout(()=>shareCopyBtn.textContent='Copy',1800);});
-shareList.addEventListener('click',async event=>{const button=event.target.closest('.js-revoke-share');if(!button||button.disabled)return;if(!confirm('Disable this share link? Anyone using it will immediately lose access.'))return;button.disabled=true;button.textContent='Disabling…';try{await fetchJson(<?= json_encode(base_url('files/shares')) ?>+'/'+button.dataset.shareRecordId+'/revoke',{method:'POST',body:'{}'});await loadShareRows();}catch(error){button.disabled=false;button.textContent='Disable';alert(error.message||'Could not disable the share link.');}});
-async function sha256(file){if(!window.crypto?.subtle)return'';const buffer=await file.arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',buffer);return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');}
-function putWithProgress(url,file,index,total){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();currentXhr=xhr;xhr.open('PUT',url);xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');xhr.upload.onprogress=e=>{if(e.lengthComputable){const current=Math.round(e.loaded/e.total*100),overall=Math.round(((index+current/100)/total)*100);progressBar.style.width=overall+'%';setStatus('Uploading '+file.name+' — '+current+'%');}};xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('Storage upload failed with status '+xhr.status+'.'));xhr.onerror=()=>reject(new Error('Storage upload failed. Check your connection.'));xhr.onabort=()=>reject(new Error('Upload cancelled.'));xhr.send(file);});}
-async function cancelPending(){cancelled=true;if(currentXhr)currentXhr.abort();if(currentToken){try{await fetchJson(<?= json_encode(base_url('files/cancel-upload')) ?>,{method:'POST',body:JSON.stringify({uploadToken:currentToken})});}catch(e){}}currentToken=null;uploadBtn.disabled=false;uploadBtn.textContent='Add to vault';cancelBtn.style.display='none';setStatus('Upload cancelled.',true);}cancelBtn.addEventListener('click',cancelPending);
-uploadForm.addEventListener('submit',async e=>{e.preventDefault();const files=[...selectedUploadFiles];if(!files.length){setStatus('Choose at least one non-empty file within the upload limit.',true);return;}cancelled=false;uploadBtn.disabled=true;uploadBtn.textContent='Uploading…';cancelBtn.style.display='inline-block';progressWrap.style.display='block';progressBar.style.width='0%';const sharedTitle=document.getElementById('title').value.trim();let completed=0;try{for(let i=0;i<files.length;i++){if(cancelled)throw new Error('Upload cancelled.');const file=files[i];setStatus('Checking '+file.name+'…');const checksum=await sha256(file),title=files.length===1&&sharedTitle?sharedTitle:baseTitle(file.name);const sign=await fetchJson(<?= json_encode(base_url('files/sign-upload')) ?>,{method:'POST',body:JSON.stringify({title,description:document.getElementById('description').value.trim(),category:document.getElementById('category').value.trim(),documentDate:document.getElementById('documentDate').value,expiresAt:document.getElementById('expiresAt').value,reminderDays:document.getElementById('reminderDays').value,filename:file.name,folderPath:selectedFolder(file),mimetype:file.type||'application/octet-stream',filesize:file.size,checksum})});currentToken=sign.uploadToken;await putWithProgress(sign.uploadUrl,file,i,files.length);await fetchJson(<?= json_encode(base_url('files/store')) ?>,{method:'POST',body:JSON.stringify({uploadToken:currentToken})});currentToken=null;completed++;}progressBar.style.width='100%';setStatus(completed+' file'+(completed===1?'':'s')+' added. Refreshing folder…');setTimeout(()=>location.reload(),650);}catch(err){if(currentToken){try{await fetchJson(<?= json_encode(base_url('files/cancel-upload')) ?>,{method:'POST',body:JSON.stringify({uploadToken:currentToken})});}catch(cleanupError){}currentToken=null;}uploadBtn.textContent='Retry upload';setStatus(err.message||'Upload failed.',true);}finally{currentXhr=null;uploadBtn.disabled=false;cancelBtn.style.display='none';}});
+let currentXhr = null;
+let currentToken = null;
+let activeUploadId = null;
+let cancelled = false;
+let uploadQueue = [];
+let uploadQueueSource = 'files';
+let skippedSelectionCount = 0;
+let uploadIdCounter = 0;
+let uploadBusy = false;
+const HASH_LIMIT_BYTES = 32 * 1024 * 1024;
+
+function formatBytes(bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let index = 0;
+  let value = Number(bytes) || 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index++;
+  }
+  return (index ? value.toFixed(1) : Math.round(value)) + ' ' + units[index];
+}
+
+function baseTitle(name) {
+  return name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || name;
+}
+
+function setStatus(message, error = false) {
+  uploadStatus.style.display = 'block';
+  uploadStatus.textContent = message;
+  uploadStatus.style.color = error ? 'var(--red)' : 'var(--text-dim)';
+}
+
+function relativePath(file) {
+  return String(file.webkitRelativePath || file.name)
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+}
+
+function selectedFolder(file) {
+  const path = relativePath(file);
+  const cut = path.lastIndexOf('/');
+  const inside = cut > 0 ? path.slice(0, cut) : '';
+  return [CURRENT_PATH, inside].filter(Boolean).join('/');
+}
+
+function queueStatusLabel(entry) {
+  const labels = {
+    ready: 'Ready',
+    hashing: 'Preparing',
+    uploading: Math.max(0, Math.min(100, entry.progress || 0)) + '%',
+    finalizing: 'Saving',
+    done: 'Uploaded',
+    error: 'Retry',
+  };
+  return labels[entry.status] || 'Ready';
+}
+
+function updateUploadButton() {
+  const retryable = uploadQueue.filter(entry => entry.status === 'ready' || entry.status === 'error').length;
+  const failed = uploadQueue.filter(entry => entry.status === 'error').length;
+  if (uploadBusy) {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading…';
+    return;
+  }
+  uploadBtn.disabled = retryable === 0;
+  if (retryable === 0) {
+    uploadBtn.textContent = uploadQueue.some(entry => entry.status === 'done') ? 'Uploaded' : 'Add to vault';
+    return;
+  }
+  uploadBtn.textContent = failed > 0
+    ? 'Retry ' + failed + ' failed'
+    : 'Upload ' + retryable + ' file' + (retryable === 1 ? '' : 's');
+}
+
+function renderUploadQueue() {
+  selectedFiles.innerHTML = '';
+  for (const entry of uploadQueue) {
+    const row = document.createElement('div');
+    row.className = 'selected-file status-' + entry.status;
+    row.dataset.uploadId = entry.id;
+
+    const copy = document.createElement('span');
+    copy.className = 'selected-file-copy';
+
+    const name = document.createElement('span');
+    name.className = 'selected-file-name';
+    name.textContent = entry.file.name;
+
+    const path = document.createElement('span');
+    path.className = 'selected-file-path';
+    path.textContent = selectedFolder(entry.file) || 'My Drive';
+
+    copy.append(name, path);
+    if (entry.error) {
+      const error = document.createElement('span');
+      error.className = 'selected-file-error';
+      error.textContent = entry.error;
+      copy.appendChild(error);
+    }
+
+    const side = document.createElement('span');
+    side.className = 'selected-file-side';
+
+    const size = document.createElement('strong');
+    size.textContent = formatBytes(entry.file.size);
+
+    const status = document.createElement('span');
+    status.className = 'upload-file-status';
+    status.textContent = queueStatusLabel(entry);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'selected-file-remove';
+    remove.dataset.removeUpload = entry.id;
+    remove.setAttribute('aria-label', 'Remove ' + entry.file.name);
+    remove.title = 'Remove from upload queue';
+    remove.textContent = '×';
+    remove.disabled = entry.id === activeUploadId || ['hashing', 'uploading', 'finalizing', 'done'].includes(entry.status);
+
+    side.append(size, status, remove);
+    row.append(copy, side);
+
+    if (['hashing', 'uploading', 'finalizing'].includes(entry.status)) {
+      const track = document.createElement('div');
+      track.className = 'selected-file-progress';
+      const bar = document.createElement('span');
+      bar.style.width = (entry.status === 'uploading' ? entry.progress : entry.status === 'finalizing' ? 100 : 4) + '%';
+      track.appendChild(bar);
+      row.appendChild(track);
+    }
+
+    selectedFiles.appendChild(row);
+  }
+
+  const ready = uploadQueue.filter(entry => entry.status === 'ready').length;
+  const failed = uploadQueue.filter(entry => entry.status === 'error').length;
+  const done = uploadQueue.filter(entry => entry.status === 'done').length;
+  const parts = [];
+  if (ready) parts.push(ready + ' ready');
+  if (done) parts.push('<span class="upload-summary-success">' + done + ' uploaded</span>');
+  if (failed) parts.push('<span class="upload-summary-error">' + failed + ' failed</span>');
+  if (uploadQueueSource === 'folder' && uploadQueue.length) parts.push('folder structure kept');
+  if (skippedSelectionCount) parts.push(skippedSelectionCount + ' empty or oversized skipped');
+  selectionSummary.innerHTML = parts.length ? parts.join(' · ') : 'Nothing selected';
+  updateUploadButton();
+}
+
+function chooseUploadFiles(fileList, source = 'files') {
+  const all = [...fileList];
+  const valid = all.filter(file => file.size > 0 && file.size <= MAX_BYTES);
+  skippedSelectionCount = all.length - valid.length;
+  uploadQueueSource = source;
+  uploadQueue = valid.map(file => ({
+    id: 'upload-' + Date.now() + '-' + (++uploadIdCounter),
+    file,
+    status: 'ready',
+    progress: 0,
+    error: '',
+  }));
+  renderUploadQueue();
+  if (skippedSelectionCount) {
+    setStatus(skippedSelectionCount + ' file' + (skippedSelectionCount === 1 ? ' was' : 's were') + ' skipped because they were empty or over the upload limit.', true);
+  } else {
+    uploadStatus.style.display = 'none';
+  }
+}
+
+fileInput.addEventListener('change', () => {
+  chooseUploadFiles(fileInput.files, 'files');
+  fileInput.value = '';
+});
+folderInput.addEventListener('change', () => {
+  chooseUploadFiles(folderInput.files, 'folder');
+  folderInput.value = '';
+});
+['dragenter', 'dragover'].forEach(eventName => dropzone.addEventListener(eventName, event => {
+  event.preventDefault();
+  dropzone.classList.add('drag');
+}));
+['dragleave', 'drop'].forEach(eventName => dropzone.addEventListener(eventName, event => {
+  event.preventDefault();
+  dropzone.classList.remove('drag');
+}));
+dropzone.addEventListener('drop', event => {
+  if (event.dataTransfer.files.length) chooseUploadFiles(event.dataTransfer.files, 'files');
+});
+selectedFiles.addEventListener('click', event => {
+  const button = event.target.closest('[data-remove-upload]');
+  if (!button || button.disabled) return;
+  uploadQueue = uploadQueue.filter(entry => entry.id !== button.dataset.removeUpload);
+  renderUploadQueue();
+});
+
+async function fetchJson(url, options = {}) {
+  options.headers = Object.assign({
+    'Content-Type': 'application/json',
+    [CSRF_HEADER]: CSRF_HASH,
+  }, options.headers || {});
+  const response = await fetch(url, options);
+  const text = await response.text();
+  let data = {};
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    throw new Error(response.status === 403
+      ? 'Your security token expired. Refresh the page and try again.'
+      : 'The server returned an unexpected response.');
+  }
+  if (!response.ok) throw new Error(data.error || 'Request failed.');
+  return data;
+}
+
+function formatShareDate(value) {
+  if (!value) return 'No expiration';
+  const date = new Date(String(value).replace(' ', 'T'));
+  return Number.isFinite(date.getTime()) ? date.toLocaleString() : value;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;',
+  }[character]));
+}
+
+function renderShareRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    shareList.innerHTML = '<div class="share-list-empty">No share links have been created for this ' + escapeHtml(currentShareTarget?.type || 'item') + '.</div>';
+    return;
+  }
+  shareList.innerHTML = rows.map(row => {
+    const active = row.status === 'active';
+    const limit = row.maxDownloads ? row.downloadCount + ' / ' + row.maxDownloads + ' downloads' : row.downloadCount + ' downloads';
+    const expires = row.expiresAt ? 'Expires ' + formatShareDate(row.expiresAt) : 'No expiration';
+    return '<div class="share-row-item"><div class="share-row-main"><div class="share-row-line"><span class="share-status ' + escapeHtml(row.status) + '">' + escapeHtml(row.statusLabel) + '</span>' + escapeHtml(expires) + '</div><div class="share-row-meta">' + escapeHtml(limit) + ' · ' + Number(row.viewCount || 0) + ' views · created ' + escapeHtml(formatShareDate(row.createdAt)) + '</div></div><button type="button" class="share-revoke js-revoke-share" data-share-record-id="' + Number(row.id) + '" ' + (active ? '' : 'disabled') + '>' + (active ? 'Disable' : 'Disabled') + '</button></div>';
+  }).join('');
+}
+
+function shareEndpoint() {
+  if (!currentShareTarget) return '';
+  return currentShareTarget.type === 'folder'
+    ? <?= json_encode(base_url('files/folder-shares')) ?>
+    : <?= json_encode(base_url('files')) ?> + '/' + currentShareTarget.id + '/shares';
+}
+
+async function loadShareRows() {
+  if (!currentShareTarget) return;
+  shareList.innerHTML = '<div class="share-loading">Loading links…</div>';
+  try {
+    let url = shareEndpoint();
+    if (currentShareTarget.type === 'folder') url += '?path=' + encodeURIComponent(currentShareTarget.path);
+    const data = await fetchJson(url, { method: 'GET' });
+    renderShareRows(data.shares || []);
+  } catch (error) {
+    shareList.innerHTML = '<div class="share-list-empty">' + escapeHtml(error.message || 'Could not load share links.') + '</div>';
+  }
+}
+
+async function openShareModal(button) {
+  const folder = button.classList.contains('js-share-folder');
+  currentShareTarget = folder
+    ? { type: 'folder', path: button.dataset.folderPath || '', name: button.dataset.folderName || 'folder' }
+    : { type: 'file', id: Number(button.dataset.shareId || 0), name: button.dataset.shareTitle || 'file' };
+  shareModalTitle.textContent = 'Share “' + currentShareTarget.name + '”';
+  shareHelp.textContent = folder
+    ? 'Anyone with the link can browse this folder, open its files and subfolders, and download the folder as a ZIP.'
+    : 'Anyone with the link can open or download only this file.';
+  shareDuration.value = '7d';
+  shareMaxDownloads.value = '0';
+  shareResult.hidden = true;
+  shareLinkInput.value = '';
+  shareCopyBtn.textContent = 'Copy';
+  shareResultNote.textContent = 'For security, copy this link now. The complete token is only displayed when the link is created.';
+  openModal(shareModal);
+  await loadShareRows();
+}
+
+shareForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!currentShareTarget) return;
+  shareCreateBtn.disabled = true;
+  shareCreateBtn.textContent = 'Creating…';
+  try {
+    const body = { duration: shareDuration.value, maxDownloads: Number(shareMaxDownloads.value || 0) };
+    if (currentShareTarget.type === 'folder') body.path = currentShareTarget.path;
+    const data = await fetchJson(shareEndpoint(), { method: 'POST', body: JSON.stringify(body) });
+    shareLinkInput.value = data.shareUrl || '';
+    shareResult.hidden = false;
+    shareCopyBtn.textContent = 'Copy';
+    shareResultNote.textContent = data.message || 'Copy this link now.';
+    await loadShareRows();
+    shareLinkInput.focus();
+    shareLinkInput.select();
+  } catch (error) {
+    alert(error.message || 'Could not create the share link.');
+  } finally {
+    shareCreateBtn.disabled = false;
+    shareCreateBtn.textContent = 'Create link';
+  }
+});
+
+shareCopyBtn.addEventListener('click', async () => {
+  if (!shareLinkInput.value) return;
+  try {
+    await navigator.clipboard.writeText(shareLinkInput.value);
+    shareCopyBtn.textContent = 'Copied';
+  } catch (error) {
+    shareLinkInput.focus();
+    shareLinkInput.select();
+    document.execCommand('copy');
+    shareCopyBtn.textContent = 'Copied';
+  }
+  setTimeout(() => shareCopyBtn.textContent = 'Copy', 1800);
+});
+
+shareList.addEventListener('click', async event => {
+  const button = event.target.closest('.js-revoke-share');
+  if (!button || button.disabled) return;
+  if (!confirm('Disable this share link? Anyone using it will immediately lose access.')) return;
+  button.disabled = true;
+  button.textContent = 'Disabling…';
+  try {
+    await fetchJson(<?= json_encode(base_url('files/shares')) ?> + '/' + button.dataset.shareRecordId + '/revoke', { method: 'POST', body: '{}' });
+    await loadShareRows();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Disable';
+    alert(error.message || 'Could not disable the share link.');
+  }
+});
+
+async function sha256(file) {
+  // Web Crypto requires a full ArrayBuffer. Skipping the optional checksum for
+  // large files prevents hundreds of megabytes from being duplicated in RAM.
+  if (!window.crypto?.subtle || file.size > HASH_LIMIT_BYTES) return '';
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function setQueueEntry(entry, status, progress = entry.progress, error = '') {
+  entry.status = status;
+  entry.progress = progress;
+  entry.error = error;
+  renderUploadQueue();
+}
+
+function putWithProgress(url, entry, completed, total) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    currentXhr = xhr;
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', entry.file.type || 'application/octet-stream');
+    xhr.upload.onprogress = event => {
+      if (!event.lengthComputable) return;
+      entry.progress = Math.round((event.loaded / event.total) * 100);
+      const overall = Math.round(((completed + entry.progress / 100) / total) * 100);
+      progressBar.style.width = overall + '%';
+      setStatus('Uploading ' + entry.file.name + ' — ' + entry.progress + '%');
+      const row = [...selectedFiles.children].find(item => item.dataset.uploadId === entry.id);
+      if (row) {
+        const status = row.querySelector('.upload-file-status');
+        const bar = row.querySelector('.selected-file-progress span');
+        if (status) status.textContent = entry.progress + '%';
+        if (bar) bar.style.width = entry.progress + '%';
+      }
+    };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300
+      ? resolve()
+      : reject(new Error('Storage upload failed with status ' + xhr.status + '.'));
+    xhr.onerror = () => reject(new Error('Storage upload failed. Check your connection.'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled.', 'AbortError'));
+    xhr.send(entry.file);
+  });
+}
+
+async function cleanupPendingUpload() {
+  if (!currentToken) return;
+  try {
+    await fetchJson(<?= json_encode(base_url('files/cancel-upload')) ?>, {
+      method: 'POST',
+      body: JSON.stringify({ uploadToken: currentToken }),
+    });
+  } catch (error) {
+    // The scheduled cleanup can remove an abandoned pending upload later.
+  }
+  currentToken = null;
+}
+
+async function cancelPending() {
+  cancelled = true;
+  if (currentXhr) currentXhr.abort();
+  await cleanupPendingUpload();
+  const active = uploadQueue.find(entry => entry.id === activeUploadId);
+  if (active && active.status !== 'done') {
+    active.status = 'error';
+    active.error = 'Upload cancelled. Retry when ready.';
+    active.progress = 0;
+  }
+  activeUploadId = null;
+  currentXhr = null;
+  uploadBusy = false;
+  uploadBtn.disabled = false;
+  cancelBtn.style.display = 'none';
+  setStatus('Upload cancelled. Completed files were kept; Retry only processes unfinished files.', true);
+  renderUploadQueue();
+}
+
+cancelBtn.addEventListener('click', cancelPending);
+
+uploadForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const pending = uploadQueue.filter(entry => entry.status === 'ready' || entry.status === 'error');
+  if (!pending.length) {
+    setStatus('Choose at least one non-empty file within the upload limit.', true);
+    return;
+  }
+
+  cancelled = false;
+  uploadBusy = true;
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading…';
+  cancelBtn.style.display = 'inline-block';
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+
+  const sharedTitle = document.getElementById('title').value.trim();
+  const singleSelection = uploadQueue.length === 1;
+  let completedThisRun = 0;
+  let failedThisRun = 0;
+
+  for (const entry of pending) {
+    if (cancelled) break;
+    activeUploadId = entry.id;
+    currentXhr = null;
+    currentToken = null;
+    entry.error = '';
+
+    try {
+      setQueueEntry(entry, 'hashing', 0);
+      setStatus((entry.file.size > HASH_LIMIT_BYTES ? 'Preparing ' : 'Checking ') + entry.file.name + '…');
+      const checksum = await sha256(entry.file);
+      if (cancelled) throw new DOMException('Upload cancelled.', 'AbortError');
+
+      const title = singleSelection && sharedTitle ? sharedTitle : baseTitle(entry.file.name);
+      const sign = await fetchJson(<?= json_encode(base_url('files/sign-upload')) ?>, {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description: document.getElementById('description').value.trim(),
+          category: document.getElementById('category').value.trim(),
+          documentDate: document.getElementById('documentDate').value,
+          expiresAt: document.getElementById('expiresAt').value,
+          reminderDays: document.getElementById('reminderDays').value,
+          filename: entry.file.name,
+          folderPath: selectedFolder(entry.file),
+          mimetype: entry.file.type || 'application/octet-stream',
+          filesize: entry.file.size,
+          checksum,
+        }),
+      });
+
+      currentToken = sign.uploadToken;
+      setQueueEntry(entry, 'uploading', 0);
+      await putWithProgress(sign.uploadUrl, entry, completedThisRun, pending.length);
+      if (cancelled) throw new DOMException('Upload cancelled.', 'AbortError');
+
+      setQueueEntry(entry, 'finalizing', 100);
+      setStatus('Saving ' + entry.file.name + ' to the vault…');
+      await fetchJson(<?= json_encode(base_url('files/store')) ?>, {
+        method: 'POST',
+        body: JSON.stringify({ uploadToken: currentToken }),
+      });
+      currentToken = null;
+      completedThisRun++;
+      setQueueEntry(entry, 'done', 100);
+    } catch (error) {
+      await cleanupPendingUpload();
+      if (cancelled || error?.name === 'AbortError') {
+        entry.status = 'error';
+        entry.progress = 0;
+        entry.error = 'Upload cancelled. Retry when ready.';
+        renderUploadQueue();
+        break;
+      }
+      failedThisRun++;
+      entry.status = 'error';
+      entry.progress = 0;
+      entry.error = error.message || 'Upload failed.';
+      renderUploadQueue();
+    } finally {
+      currentXhr = null;
+      activeUploadId = null;
+    }
+  }
+
+  cancelBtn.style.display = 'none';
+  uploadBusy = false;
+  uploadBtn.disabled = false;
+  const remaining = uploadQueue.filter(entry => entry.status === 'ready' || entry.status === 'error').length;
+  const totalDone = uploadQueue.filter(entry => entry.status === 'done').length;
+
+  if (!cancelled && remaining === 0) {
+    progressBar.style.width = '100%';
+    setStatus(totalDone + ' file' + (totalDone === 1 ? '' : 's') + ' added. Refreshing folder…');
+    setTimeout(() => location.reload(), 650);
+    return;
+  }
+
+  progressBar.style.width = pending.length
+    ? Math.round((completedThisRun / pending.length) * 100) + '%'
+    : '0%';
+  if (!cancelled) {
+    setStatus(
+      completedThisRun + ' uploaded' + (failedThisRun ? ' · ' + failedThisRun + ' failed. Retry only processes failed files.' : ''),
+      failedThisRun > 0,
+    );
+  }
+  renderUploadQueue();
+});
+
+const vaultReturnTo = location.pathname + location.search;
+document.getElementById('editReturnTo').value = vaultReturnTo;
+document.getElementById('deleteReturnTo').value = vaultReturnTo;
+const uploadPanel = document.getElementById('uploadPanel');
+function focusUploadPanel() {
+  uploadPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  uploadPanel.classList.add('upload-attention');
+  dropzone.classList.add('attention');
+  setTimeout(() => {
+    uploadPanel.classList.remove('upload-attention');
+    dropzone.classList.remove('attention');
+  }, 1400);
+}
+document.getElementById('quickUploadBtn').addEventListener('click', focusUploadPanel);
+document.querySelectorAll('.js-focus-upload').forEach(button => button.addEventListener('click', focusUploadPanel));
+renderUploadQueue();
+
 const filterForm=document.getElementById('filterForm');let searchTimer;filterForm.querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>filterForm.submit()));document.getElementById('filterQ').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>filterForm.submit(),450);});
-const fileList=document.getElementById('fileList'),listViewBtn=document.getElementById('listViewBtn'),gridViewBtn=document.getElementById('gridViewBtn');function setView(mode){const grid=mode==='grid';fileList.classList.toggle('grid-view',grid);listViewBtn.classList.toggle('active',!grid);gridViewBtn.classList.toggle('active',grid);localStorage.setItem('vault-view',grid?'grid':'list');}listViewBtn.addEventListener('click',()=>setView('list'));gridViewBtn.addEventListener('click',()=>setView('grid'));setView(localStorage.getItem('vault-view')||'list');
+const fileList=document.getElementById('fileList'),listViewBtn=document.getElementById('listViewBtn'),gridViewBtn=document.getElementById('gridViewBtn');function setView(mode,persist=true){const grid=mode==='grid';fileList.classList.toggle('grid-view',grid);listViewBtn.classList.toggle('active',!grid);gridViewBtn.classList.toggle('active',grid);if(persist){try{localStorage.setItem('vault-view',grid?'grid':'list');}catch(error){}}}listViewBtn.addEventListener('click',()=>setView('list'));gridViewBtn.addEventListener('click',()=>setView('grid'));let savedView='list';try{savedView=localStorage.getItem('vault-view')||'list';}catch(error){}setView(savedView,false);
 const previewModal=document.getElementById('previewModal'),previewStage=document.getElementById('previewStage'),previewLoading=document.getElementById('previewLoading'),previewPrev=document.getElementById('previewPrev'),previewNext=document.getElementById('previewNext');let previewFiles=[],previewIndex=0;
 function closeActionMenus(except=null){document.querySelectorAll('.action-menu[open]').forEach(menu=>{if(menu!==except)menu.open=false;});}
 function openModal(modal){closeActionMenus();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
