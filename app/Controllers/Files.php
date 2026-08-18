@@ -348,7 +348,7 @@ class Files extends BaseController
         return $this->response->setJSON(['success' => true]);
     }
 
-    public function preview(int $id)
+    public function preview(int $id): ResponseInterface
     {
         if (! $this->isUnlocked()) {
             return redirect()->to('/files/gate');
@@ -356,18 +356,71 @@ class Files extends BaseController
 
         $file = $this->fileModel->find($id);
         if (! $file || $file['status'] !== 'active' || ! ImportantFileModel::isPreviewable($file)) {
-            return redirect()->to('/files')->with('error', 'Preview is not available for that file.');
+            return $this->response
+                ->setStatusCode(404)
+                ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+                ->setBody('Preview is not available for that file.');
+        }
+
+        $range = trim($this->request->getHeaderLine('Range'));
+        if ($range !== '' && ! preg_match('/^bytes=\d*-\d*$/', $range)) {
+            $range = '';
         }
 
         try {
-            $url = (new SupabaseStorage($this->filesBucket()))->createSignedDownloadUrl($file['file_path'], 300);
+            $object = (new SupabaseStorage($this->filesBucket()))
+                ->downloadObject($file['file_path'], $range !== '' ? $range : null);
         } catch (Throwable $e) {
-            return redirect()->to('/files')->with('error', 'Could not open the preview.');
+            log_message('error', 'Important file preview failed: {message}', ['message' => $e->getMessage()]);
+
+            return $this->response
+                ->setStatusCode(502)
+                ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+                ->setBody('The preview could not be loaded. Please close this window and try again.');
         }
 
-        $this->audit('file_previewed', $id);
+        if ($range === '') {
+            $this->audit('file_previewed', $id);
+        }
 
-        return redirect()->to($url);
+        $previewMimeTypes = [
+            'pdf'  => 'application/pdf',
+            'txt'  => 'text/plain; charset=UTF-8',
+            'csv'  => 'text/csv; charset=UTF-8',
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'gif'  => 'image/gif',
+        ];
+        $extension = strtolower((string) ($file['file_extension'] ?? pathinfo((string) $file['original_filename'], PATHINFO_EXTENSION)));
+        $mimeType  = $previewMimeTypes[$extension]
+            ?? trim((string) ($object['contentType'] ?: $file['mime_type']))
+            ?: 'application/octet-stream';
+
+        $filename = basename(str_replace('\\', '/', (string) $file['original_filename']));
+        $fallback = preg_replace('/[^A-Za-z0-9._ -]/', '_', $filename) ?: 'preview';
+        $fallback = str_replace(['"', "\r", "\n"], '', $fallback);
+        $disposition = 'inline; filename="' . $fallback . '"; filename*=UTF-8\'\'' . rawurlencode($filename);
+
+        $response = $this->response
+            ->setStatusCode((int) $object['status'])
+            ->setHeader('Content-Type', $mimeType)
+            ->setHeader('Content-Disposition', $disposition)
+            ->setHeader('Content-Length', (string) strlen($object['body']))
+            ->setHeader('Accept-Ranges', $object['acceptRanges'] ?: 'bytes')
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('Pragma', 'no-cache')
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setHeader('X-Frame-Options', 'SAMEORIGIN')
+            ->setHeader('X-Robots-Tag', 'noindex, nofollow')
+            ->setBody($object['body']);
+
+        if ($object['contentRange'] !== '') {
+            $response->setHeader('Content-Range', $object['contentRange']);
+        }
+
+        return $response;
     }
 
     public function download(int $id)

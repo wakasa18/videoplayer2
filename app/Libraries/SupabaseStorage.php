@@ -236,6 +236,70 @@ class SupabaseStorage
         return substr($data, 0, $bytes);
     }
 
+    /**
+     * Fetch a private object through the authenticated Storage API.
+     * Supports a single HTTP byte range so browser PDF viewers can request
+     * only the portions they need instead of downloading the whole file again.
+     *
+     * @return array{status:int,body:string,contentType:string,contentRange:string,acceptRanges:string}
+     */
+    public function downloadObject(string $remotePath, ?string $range = null): array
+    {
+        $headers = [
+            'Authorization: Bearer ' . $this->serviceKey,
+            'apikey: ' . $this->serviceKey,
+        ];
+
+        if ($range !== null && preg_match('/^bytes=\d*-\d*$/', trim($range))) {
+            $headers[] = 'Range: ' . trim($range);
+        }
+
+        $responseHeaders = [];
+        $ch = curl_init($this->objectUrl($remotePath));
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPGET        => true,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+                $length = strlen($line);
+                $trimmed = trim($line);
+
+                if (str_starts_with($trimmed, 'HTTP/')) {
+                    $responseHeaders = [];
+                    return $length;
+                }
+
+                if (str_contains($line, ':')) {
+                    [$name, $value] = explode(':', $line, 2);
+                    $responseHeaders[strtolower(trim($name))] = trim($value);
+                }
+
+                return $length;
+            },
+        ]);
+
+        $body   = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error  = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false || $error !== '' || ! in_array($status, [200, 206], true)) {
+            throw new RuntimeException(
+                'Could not load the private file preview' . ($status > 0 ? " (status {$status})" : '') . '.'
+            );
+        }
+
+        return [
+            'status'       => $status,
+            'body'         => $body,
+            'contentType'  => strtolower(trim(explode(';', $responseHeaders['content-type'] ?? '')[0])),
+            'contentRange' => (string) ($responseHeaders['content-range'] ?? ''),
+            'acceptRanges' => (string) ($responseHeaders['accept-ranges'] ?? 'bytes'),
+        ];
+    }
+
     protected function objectUrl(string $remotePath): string
     {
         return sprintf(
