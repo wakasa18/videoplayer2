@@ -12,6 +12,7 @@ use CodeIgniter\Filters\InvalidChars;
 use CodeIgniter\Filters\PageCache;
 use CodeIgniter\Filters\PerformanceMetrics;
 use CodeIgniter\Filters\SecureHeaders;
+use App\Filters\AuthFilter;
 
 class Filters extends BaseFilters
 {
@@ -34,6 +35,7 @@ class Filters extends BaseFilters
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
+        'auth'          => AuthFilter::class,
     ];
 
     /**
@@ -73,8 +75,8 @@ class Filters extends BaseFilters
     public array $globals = [
         'before' => [
             // 'honeypot',
-            // 'csrf',
             // 'invalidchars',
+            'auth' => ['except' => ['login', 'share/*', 'cron/*']],
         ],
         'after' => [
             // 'honeypot',
@@ -109,6 +111,6 @@ class Filters extends BaseFilters
     public array $filters = [
         // Important Files accepts both normal forms and JSON requests.
         // Restricting CSRF to this vault avoids breaking unrelated legacy pages.
-        'csrf' => ['before' => ['files', 'files/*']],
+        'csrf' => ['before' => ['login', 'logout', 'files', 'files/*']],
     ];
 }

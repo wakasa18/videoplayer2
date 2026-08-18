@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Libraries\SupabaseStorage;
 use App\Models\FileAuditModel;
 use App\Models\ImportantFileModel;
+use App\Models\ImportantFileShareModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 use Config\Supabase as SupabaseConfig;
@@ -605,6 +606,139 @@ class Files extends BaseController
         return redirect()->to($url);
     }
 
+    public function shares(int $id): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $file = $this->fileModel->find($id);
+        if (! $file || $file['status'] !== 'active') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'File not found.']);
+        }
+
+        $rows = (new ImportantFileShareModel())->recentForFile($id);
+        $shares = array_map(static function (array $share): array {
+            $status = ImportantFileShareModel::status($share);
+
+            return [
+                'id'             => (int) $share['id'],
+                'status'         => $status['key'],
+                'statusLabel'    => $status['label'],
+                'createdAt'      => (string) $share['created_at'],
+                'expiresAt'      => $share['expires_at'] ?: null,
+                'maxDownloads'   => $share['max_downloads'] !== null ? (int) $share['max_downloads'] : null,
+                'downloadCount'  => (int) ($share['download_count'] ?? 0),
+                'viewCount'      => (int) ($share['view_count'] ?? 0),
+                'revokedAt'      => $share['revoked_at'] ?: null,
+            ];
+        }, $rows);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON(['shares' => $shares]);
+    }
+
+    public function createShare(int $id): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $file = $this->fileModel->find($id);
+        if (! $file || $file['status'] !== 'active') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'File not found.']);
+        }
+
+        $payload = $this->request->getJSON(true) ?: [];
+        $duration = strtolower(trim((string) ($payload['duration'] ?? '7d')));
+        $durationMap = [
+            '1d'    => '+1 day',
+            '7d'    => '+7 days',
+            '30d'   => '+30 days',
+            '90d'   => '+90 days',
+            'never' => null,
+        ];
+        if (! array_key_exists($duration, $durationMap)) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Choose a valid link expiration.']);
+        }
+
+        $maxDownloads = (int) ($payload['maxDownloads'] ?? 0);
+        if ($maxDownloads < 0 || $maxDownloads > 10000) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Download limit must be between 1 and 10,000, or 0 for unlimited.']);
+        }
+
+        $rawToken = bin2hex(random_bytes(32));
+        $expiresAt = $durationMap[$duration] === null
+            ? null
+            : date('Y-m-d H:i:s', strtotime($durationMap[$duration]));
+
+        $shareModel = new ImportantFileShareModel();
+        $shareId = $shareModel->insert([
+            'file_id'        => $id,
+            'token_hash'     => hash('sha256', $rawToken),
+            'expires_at'     => $expiresAt,
+            'max_downloads'  => $maxDownloads > 0 ? $maxDownloads : null,
+            'view_count'     => 0,
+            'download_count' => 0,
+            'created_by'     => mb_substr((string) session()->get('site_username'), 0, 100),
+        ], true);
+
+        if (! $shareId) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => implode(' ', $shareModel->errors()) ?: 'The share link could not be created.',
+            ]);
+        }
+
+        $this->audit('share_link_created', $id, [
+            'share_id'      => (int) $shareId,
+            'expires_at'    => $expiresAt,
+            'max_downloads' => $maxDownloads > 0 ? $maxDownloads : null,
+        ]);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON([
+                'success'   => true,
+                'shareId'   => (int) $shareId,
+                'shareUrl'  => base_url('share/' . $rawToken),
+                'expiresAt' => $expiresAt,
+                'message'   => 'Share link created. Copy it now; the full private token is not stored.',
+            ]);
+    }
+
+    public function revokeShare(int $shareId): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $shareModel = new ImportantFileShareModel();
+        $share = $shareModel->find($shareId);
+        if (! $share) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Share link not found.']);
+        }
+
+        $file = $this->fileModel->find((int) $share['file_id']);
+        if (! $file) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'File not found.']);
+        }
+
+        if (! empty($share['revoked_at'])) {
+            return $this->response->setJSON(['success' => true, 'message' => 'This link is already disabled.']);
+        }
+
+        if (! $shareModel->revoke($shareId)) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'The share link could not be disabled.']);
+        }
+
+        $this->audit('share_link_revoked', (int) $share['file_id'], ['share_id' => $shareId]);
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON(['success' => true, 'message' => 'Share link disabled.']);
+    }
+
     public function update(int $id): RedirectResponse
     {
         if (! $this->isUnlocked()) {
@@ -680,7 +814,8 @@ class Files extends BaseController
             return redirect()->to('/files')->with('error', 'Could not move the file to the Recycle Bin.');
         }
 
-        $this->audit('file_deleted', $id, ['purge_after_days' => 30]);
+        (new ImportantFileShareModel())->revokeForFile($id);
+        $this->audit('file_deleted', $id, ['purge_after_days' => 30, 'share_links_revoked' => true]);
 
         return redirect()->to('/files')->with('success', 'File moved to the Recycle Bin for 30 days.');
     }

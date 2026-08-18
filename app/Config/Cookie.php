@@ -104,4 +104,15 @@ class Cookie extends BaseConfig
      * @see https://tools.ietf.org/html/rfc2616#section-2.2
      */
     public bool $raw = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Production traffic on Vercel is HTTPS. Mark the authentication
+        // session cookie Secure so browsers never send it over plain HTTP.
+        if (getenv('VERCEL') !== false) {
+            $this->secure = true;
+        }
+    }
 }

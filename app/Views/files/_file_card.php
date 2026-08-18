@@ -51,6 +51,7 @@ $openData = [
     <div class="action-menu-panel">
       <button type="button" class="menu-action js-preview" data-open-file="<?= esc(json_encode($openData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>">Open</button>
       <a class="menu-action" href="<?= base_url('files/' . $f['id'] . '/download') ?>" target="_blank" rel="noopener">Download</a>
+      <button type="button" class="menu-action js-share" data-share-id="<?= (int) $f['id'] ?>" data-share-title="<?= esc($f['title'], 'attr') ?>">Share link</button>
       <button type="button" class="menu-action js-edit" data-file="<?= esc(json_encode($editData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>">Edit details</button>
       <form action="<?= base_url('files/' . $f['id'] . '/favorite') ?>" method="post">
         <?= csrf_field() ?>

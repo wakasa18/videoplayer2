@@ -131,6 +131,9 @@ class Session extends BaseConfig
     {
         parent::__construct();
 
+        $configuredMinutes = (int) (getenv('SITE_SESSION_TIMEOUT_MINUTES') ?: 480);
+        $this->expiration = max(5, min($configuredMinutes, 10080)) * 60;
+
         // Vercel's filesystem is read-only at request time (only /tmp is
         // writable, and it doesn't persist), so the default file-based
         // session driver fatals there. Vercel sets VERCEL=1 automatically

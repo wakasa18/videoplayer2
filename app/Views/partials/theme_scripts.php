@@ -1,3 +1,12 @@
+<?php if ((bool) session()->get('site_authenticated')): ?>
+<div class="site-session-bar" aria-label="Signed-in session">
+  <span class="site-session-user"><?= esc((string) session()->get('site_username')) ?></span>
+  <form action="<?= base_url('logout') ?>" method="post">
+    <?= csrf_field() ?>
+    <button class="site-logout-button" type="submit">Sign out</button>
+  </form>
+</div>
+<?php endif; ?>
 <script>
   // --- realistic starfield overlay (shared across every page) ---
   // Real starlight isn't all the same: most visible stars read white or

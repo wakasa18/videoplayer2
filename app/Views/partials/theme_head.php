@@ -123,6 +123,10 @@
     will-change:background-position;
   }
   .wrap{ max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative; z-index:1; }
+  .site-session-bar{position:fixed;top:12px;right:14px;z-index:950;display:flex;align-items:center;gap:8px;padding:6px 7px 6px 11px;border:1px solid var(--hairline);border-radius:8px;background:rgba(13,18,36,.92);backdrop-filter:blur(9px);box-shadow:0 10px 30px rgba(0,0,0,.28)}
+  .site-session-user{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:9px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)}
+  .site-session-bar form{margin:0}.site-logout-button{padding:7px 9px;border:1px solid var(--hairline);background:var(--surface-2);color:var(--text-dim);font:600 10px 'JetBrains Mono',monospace}.site-logout-button:hover{color:var(--red);border-color:var(--red)}
+  @media(max-width:620px){.site-session-bar{top:8px;right:8px}.site-session-user{display:none}.wrap{padding-top:54px}}
 
   /* -- twinkling star overlay (generated in JS): varied real star colors + sizes -- */
   .twinkle-layer{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }

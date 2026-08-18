@@ -100,3 +100,26 @@ CREATE INDEX IF NOT EXISTS ci_sessions_timestamp ON ci_sessions (timestamp);
 -- Optional sample row — replace file_path with a real uploaded file, or delete this.
 -- INSERT INTO videos (title, description, filename, original_filename, file_path, mime_type, file_size, status, created_at, updated_at)
 -- VALUES ('Sample Clip', 'Test upload', 'sample.mp4', 'sample.mp4', 'uploads/videos/sample.mp4', 'video/mp4', 1048576, 'active', NOW(), NOW());
+
+-- Public-link metadata for individually shared vault files.
+CREATE TABLE IF NOT EXISTS important_file_shares (
+  id              BIGSERIAL PRIMARY KEY,
+  file_id         INTEGER NOT NULL REFERENCES important_files(id) ON DELETE CASCADE,
+  token_hash      CHAR(64) NOT NULL,
+  expires_at      TIMESTAMP NULL,
+  max_downloads   INTEGER NULL CHECK (max_downloads IS NULL OR max_downloads BETWEEN 1 AND 10000),
+  view_count      INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+  download_count  INTEGER NOT NULL DEFAULT 0 CHECK (download_count >= 0),
+  last_accessed_at TIMESTAMP NULL,
+  revoked_at      TIMESTAMP NULL,
+  created_by      VARCHAR(100) NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_important_file_shares_token_hash ON important_file_shares (token_hash);
+CREATE INDEX IF NOT EXISTS idx_important_file_shares_file_id ON important_file_shares (file_id);
+CREATE INDEX IF NOT EXISTS idx_important_file_shares_expires_at ON important_file_shares (expires_at);
+CREATE INDEX IF NOT EXISTS idx_important_file_shares_active ON important_file_shares (file_id, revoked_at, expires_at);
+ALTER TABLE important_file_shares ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE important_file_shares FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE important_file_shares_id_seq FROM anon, authenticated;

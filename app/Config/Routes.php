@@ -3,6 +3,17 @@
 use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
+
+// Website owner authentication
+$routes->get('login', 'Auth::index');
+$routes->post('login', 'Auth::login');
+$routes->post('logout', 'Auth::logout');
+
+// Public file-sharing links. These routes intentionally bypass website login.
+$routes->get('share/(:segment)', 'SharedFiles::show/$1');
+$routes->get('share/(:segment)/preview', 'SharedFiles::preview/$1');
+$routes->get('share/(:segment)/download', 'SharedFiles::download/$1');
+
 $routes->get('/', 'Home::index');
 
 // Video library
@@ -28,6 +39,9 @@ $routes->post('files/folder-download-manifest', 'Files::folderDownloadManifest')
 $routes->post('files/folder-download-complete', 'Files::folderDownloadComplete');
 $routes->get('files/(:num)/preview', 'Files::preview/$1');
 $routes->get('files/(:num)/download', 'Files::download/$1');
+$routes->get('files/(:num)/shares', 'Files::shares/$1');
+$routes->post('files/(:num)/shares', 'Files::createShare/$1');
+$routes->post('files/shares/(:num)/revoke', 'Files::revokeShare/$1');
 $routes->post('files/(:num)/update', 'Files::update/$1');
 $routes->post('files/(:num)/favorite', 'Files::toggleFavorite/$1');
 $routes->post('files/(:num)/delete', 'Files::destroy/$1');
