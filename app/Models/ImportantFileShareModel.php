@@ -17,6 +17,7 @@ class ImportantFileShareModel extends Model
         'file_id',
         'folder_path',
         'token_hash',
+        'token_ciphertext',
         'expires_at',
         'max_downloads',
         'view_count',
@@ -37,7 +38,8 @@ class ImportantFileShareModel extends Model
         'share_type'    => 'required|in_list[file,folder]',
         'file_id'       => 'permit_empty|integer|greater_than[0]',
         'folder_path'   => 'permit_empty|max_length[1000]',
-        'token_hash'    => 'required|exact_length[64]|alpha_numeric',
+        'token_hash'       => 'required|exact_length[64]|alpha_numeric',
+        'token_ciphertext' => 'permit_empty|max_length[500]',
         'max_downloads' => 'permit_empty|integer|greater_than[0]|less_than_equal_to[10000]',
     ];
 

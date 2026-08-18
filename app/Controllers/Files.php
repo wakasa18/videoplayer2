@@ -66,6 +66,84 @@ class Files extends BaseController
         return $this->response->setStatusCode(401)->setJSON(['error' => 'This vault is locked. Refresh and unlock it again.']);
     }
 
+    private function shareTokenKey(): string
+    {
+        $candidates = [
+            getenv('SHARE_TOKEN_ENCRYPTION_KEY') ?: '',
+            function_exists('env') ? (string) env('encryption.key', '') : '',
+            getenv('SITE_LOGIN_PASSWORD_HASH') ?: '',
+            getenv('SITE_LOGIN_PASSWORD') ?: '',
+        ];
+
+        foreach ($candidates as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate !== '') {
+                return hash('sha256', $candidate, true);
+            }
+        }
+
+        throw new \RuntimeException('Set SHARE_TOKEN_ENCRYPTION_KEY in Vercel before creating recoverable share links.');
+    }
+
+    private function encryptShareToken(string $rawToken): string
+    {
+        $iv = random_bytes(12);
+        $tag = '';
+        $ciphertext = openssl_encrypt(
+            $rawToken,
+            'aes-256-gcm',
+            $this->shareTokenKey(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag,
+            'important-file-share-v1',
+            16
+        );
+
+        if ($ciphertext === false || strlen($tag) !== 16) {
+            throw new \RuntimeException('The share token could not be encrypted.');
+        }
+
+        return rtrim(strtr(base64_encode("\x01" . $iv . $tag . $ciphertext), '+/', '-_'), '=');
+    }
+
+    private function decryptShareToken(string $encoded): string
+    {
+        $encoded = trim($encoded);
+        if ($encoded === '') {
+            throw new \RuntimeException('This link was created before repeat-copy support was added.');
+        }
+
+        $padding = strlen($encoded) % 4;
+        if ($padding !== 0) {
+            $encoded .= str_repeat('=', 4 - $padding);
+        }
+
+        $payload = base64_decode(strtr($encoded, '-_', '+/'), true);
+        if ($payload === false || strlen($payload) < 30 || ord($payload[0]) !== 1) {
+            throw new \RuntimeException('The saved share token is invalid.');
+        }
+
+        $iv         = substr($payload, 1, 12);
+        $tag        = substr($payload, 13, 16);
+        $ciphertext = substr($payload, 29);
+        $rawToken   = openssl_decrypt(
+            $ciphertext,
+            'aes-256-gcm',
+            $this->shareTokenKey(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag,
+            'important-file-share-v1'
+        );
+
+        if (! is_string($rawToken) || ! preg_match('/^[a-f0-9]{64}$/', $rawToken)) {
+            throw new \RuntimeException('The saved share token could not be decrypted.');
+        }
+
+        return $rawToken;
+    }
+
     private function audit(string $action, ?int $fileId = null, array $details = []): void
     {
         try {
@@ -664,12 +742,22 @@ class Files extends BaseController
             ? null
             : date('Y-m-d H:i:s', strtotime($durationMap[$duration]));
 
+        try {
+            $tokenCiphertext = $this->encryptShareToken($rawToken);
+        } catch (Throwable $e) {
+            log_message('error', 'Share-token encryption failed: {message}', ['message' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => 'Share links are not configured for repeat copying. Add SHARE_TOKEN_ENCRYPTION_KEY in Vercel and redeploy.',
+            ]);
+        }
+
         $shareModel = new ImportantFileShareModel();
         $shareId = $shareModel->insert([
             'share_type'     => 'file',
             'file_id'        => $id,
             'folder_path'    => null,
-            'token_hash'     => hash('sha256', $rawToken),
+            'token_hash'       => hash('sha256', $rawToken),
+            'token_ciphertext' => $tokenCiphertext,
             'expires_at'     => $expiresAt,
             'max_downloads'  => $maxDownloads > 0 ? $maxDownloads : null,
             'view_count'     => 0,
@@ -696,7 +784,7 @@ class Files extends BaseController
                 'shareId'   => (int) $shareId,
                 'shareUrl'  => base_url('share/' . $rawToken),
                 'expiresAt' => $expiresAt,
-                'message'   => 'Share link created. Copy it now; the full private token is not stored.',
+                'message'   => 'Share link created. You can copy it again later from Link History.',
             ]);
     }
 
@@ -741,13 +829,23 @@ class Files extends BaseController
             return $this->response->setStatusCode(422)->setJSON(['error' => $settings['error']]);
         }
 
-        $rawToken  = bin2hex(random_bytes(32));
+        $rawToken = bin2hex(random_bytes(32));
+        try {
+            $tokenCiphertext = $this->encryptShareToken($rawToken);
+        } catch (Throwable $e) {
+            log_message('error', 'Folder share-token encryption failed: {message}', ['message' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => 'Share links are not configured for repeat copying. Add SHARE_TOKEN_ENCRYPTION_KEY in Vercel and redeploy.',
+            ]);
+        }
+
         $shareModel = new ImportantFileShareModel();
         $shareId = $shareModel->insert([
             'share_type'     => 'folder',
             'file_id'        => null,
             'folder_path'    => $path,
-            'token_hash'     => hash('sha256', $rawToken),
+            'token_hash'       => hash('sha256', $rawToken),
+            'token_ciphertext' => $tokenCiphertext,
             'expires_at'     => $settings['expiresAt'],
             'max_downloads'  => $settings['maxDownloads'],
             'view_count'     => 0,
@@ -775,7 +873,111 @@ class Files extends BaseController
                 'shareId'   => (int) $shareId,
                 'shareUrl'  => base_url('share/' . $rawToken),
                 'expiresAt' => $settings['expiresAt'],
-                'message'   => 'Folder share link created. Copy it now; the full private token is not stored.',
+                'message'   => 'Folder share link created. You can copy it again later from Link History.',
+            ]);
+    }
+
+    public function shareLink(int $shareId): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $shareModel = new ImportantFileShareModel();
+        $share = $shareModel->find($shareId);
+        if (! $share) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Share link not found.']);
+        }
+
+        $status = ImportantFileShareModel::status($share);
+        if ($status['key'] !== 'active') {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Only active share links can be copied.']);
+        }
+
+        if (empty($share['token_ciphertext'])) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'error'     => 'This older link cannot be recovered. Replace it once to enable repeat copying.',
+                'canRotate' => true,
+            ]);
+        }
+
+        try {
+            $rawToken = $this->decryptShareToken((string) $share['token_ciphertext']);
+            if (! hash_equals((string) $share['token_hash'], hash('sha256', $rawToken))) {
+                throw new \RuntimeException('The saved share token does not match this link.');
+            }
+        } catch (Throwable $e) {
+            log_message('error', 'Share-token recovery failed for share {id}: {message}', [
+                'id' => $shareId,
+                'message' => $e->getMessage(),
+            ]);
+            return $this->response->setStatusCode(409)->setJSON([
+                'error'     => 'This link cannot be recovered with the current encryption key. Replace it to create a new copyable link.',
+                'canRotate' => true,
+            ]);
+        }
+
+        $this->audit(
+            ($share['share_type'] ?? 'file') === 'folder' ? 'folder_share_link_copied' : 'share_link_copied',
+            ($share['share_type'] ?? 'file') === 'file' ? (int) ($share['file_id'] ?? 0) : null,
+            ['share_id' => $shareId, 'folder_path' => $share['folder_path'] ?? null]
+        );
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON([
+                'success'  => true,
+                'shareUrl' => base_url('share/' . $rawToken),
+            ]);
+    }
+
+    public function rotateShareToken(int $shareId): ResponseInterface
+    {
+        if ($response = $this->requireUnlockedJson()) {
+            return $response;
+        }
+
+        $shareModel = new ImportantFileShareModel();
+        $share = $shareModel->find($shareId);
+        if (! $share) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Share link not found.']);
+        }
+
+        $status = ImportantFileShareModel::status($share);
+        if ($status['key'] !== 'active') {
+            return $this->response->setStatusCode(422)->setJSON(['error' => 'Only active share links can be replaced.']);
+        }
+
+        $rawToken = bin2hex(random_bytes(32));
+        try {
+            $tokenCiphertext = $this->encryptShareToken($rawToken);
+        } catch (Throwable $e) {
+            log_message('error', 'Share-token rotation failed: {message}', ['message' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => 'Add SHARE_TOKEN_ENCRYPTION_KEY in Vercel and redeploy before replacing this link.',
+            ]);
+        }
+
+        $updated = $shareModel->update($shareId, [
+            'token_hash'       => hash('sha256', $rawToken),
+            'token_ciphertext' => $tokenCiphertext,
+        ]);
+        if (! $updated) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'The share link could not be replaced.']);
+        }
+
+        $this->audit(
+            ($share['share_type'] ?? 'file') === 'folder' ? 'folder_share_link_rotated' : 'share_link_rotated',
+            ($share['share_type'] ?? 'file') === 'file' ? (int) ($share['file_id'] ?? 0) : null,
+            ['share_id' => $shareId, 'folder_path' => $share['folder_path'] ?? null]
+        );
+
+        return $this->response
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setJSON([
+                'success'  => true,
+                'shareUrl' => base_url('share/' . $rawToken),
+                'message'  => 'The old link was replaced. The new link can be copied again later.',
             ]);
     }
 
@@ -1099,6 +1301,8 @@ class Files extends BaseController
                 'downloadCount'  => (int) ($share['download_count'] ?? 0),
                 'viewCount'      => (int) ($share['view_count'] ?? 0),
                 'revokedAt'      => $share['revoked_at'] ?: null,
+                'canCopy'        => $status['key'] === 'active' && ! empty($share['token_ciphertext']),
+                'canRotate'      => $status['key'] === 'active' && empty($share['token_ciphertext']),
             ];
         }, $rows);
     }

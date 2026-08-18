@@ -47,6 +47,8 @@ $routes->get('files/(:num)/shares', 'Files::shares/$1');
 $routes->post('files/(:num)/shares', 'Files::createShare/$1');
 $routes->get('files/folder-shares', 'Files::folderShares');
 $routes->post('files/folder-shares', 'Files::createFolderShare');
+$routes->get('files/shares/(:num)/link', 'Files::shareLink/$1');
+$routes->post('files/shares/(:num)/rotate', 'Files::rotateShareToken/$1');
 $routes->post('files/shares/(:num)/revoke', 'Files::revokeShare/$1');
 $routes->post('files/(:num)/update', 'Files::update/$1');
 $routes->post('files/(:num)/favorite', 'Files::toggleFavorite/$1');
