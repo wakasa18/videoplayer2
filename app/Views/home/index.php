@@ -10,20 +10,27 @@
     margin:0 0 8px; opacity:0; animation:fadeInUp .6s ease .26s forwards;
   }
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>
-<div class="wrap">
+<div class="wrap home-shell">
 
   <?= view('partials/deadline_banner') ?>
 
-  <header class="home-header">
-    <p class="eyebrow">Personal Archive · Root Access</p>
-    <h1>Damon's Archive</h1>
-    <div class="starline"></div>
-  </header>
-
-  <p class="home-sub">Pick a section to open its log. New sectors get added here as they come online.</p>
+  <section class="home-hero">
+    <header class="home-header">
+      <p class="eyebrow">Personal Archive · Root Access</p>
+      <h1>Damon's Archive</h1>
+      <div class="starline"></div>
+    </header>
+    <p class="home-sub">A private command center for videos, assignments, notes, and important files. Choose a sector to continue.</p>
+    <div class="home-status">
+      <span class="home-status-chip"><i></i> System online</span>
+      <span class="home-status-chip">Secure session</span>
+      <span class="home-status-chip">Private workspace</span>
+    </div>
+  </section>
 
   <div class="portal-grid cols-2">
 

@@ -3,6 +3,7 @@
 <head>
 <title>Others · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

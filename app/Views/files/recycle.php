@@ -10,6 +10,7 @@
   .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,4,10,.82);z-index:100}.modal.open{display:flex}.modal-card{width:min(480px,100%);background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:20px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.modal-actions button{width:auto}.secondary{background:var(--surface-2);border:1px solid var(--hairline);color:var(--text)}.danger-button{background:var(--red);color:white}
   @media(max-width:650px){.file-item{align-items:flex-start;flex-wrap:wrap}.file-meta{min-width:calc(100% - 60px)}.actions{width:100%;padding-left:57px}}
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

@@ -6,6 +6,7 @@
 <style>
   .gate-panel{max-width:420px;margin:60px auto 0;text-align:center;padding:40px 32px}.gate-icon{width:56px;height:56px;margin:0 auto 18px;border-radius:50%;background:var(--surface-2);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:22px}.gate-panel h2{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:25px;margin:0 0 8px}.gate-panel p{font-size:13px;color:var(--text-dim);margin:0 0 22px;line-height:1.6}.password-wrap{position:relative}.password-wrap input{padding-right:72px}.show-password{position:absolute;right:6px;top:5px;padding:7px 9px;background:transparent;color:var(--text-dim);font-size:11px}.show-password:hover{color:var(--cyan)}
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

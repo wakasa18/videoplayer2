@@ -83,6 +83,7 @@
     animation:progressShimmer 1.2s linear infinite;
   }
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

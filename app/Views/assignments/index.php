@@ -173,6 +173,7 @@
   }
   select:focus{ outline:2px solid var(--cyan); outline-offset:1px; }
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

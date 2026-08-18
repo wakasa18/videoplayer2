@@ -19,6 +19,7 @@
   .soon-panel p{ font-size:14px; color:var(--text-dim); line-height:1.6; margin:0 0 26px; }
   .soon-panel .btn-primary{ width:auto; padding:11px 26px; margin-top:0; }
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>

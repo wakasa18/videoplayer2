@@ -46,6 +46,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
   @media(max-width:760px){.summary-strip{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}.folder-grid{grid-template-columns:1fr 1fr}.file-list.grid-view{grid-template-columns:1fr 1fr}.preview-body{grid-template-columns:1fr}.preview-info{display:none}.drive-preview-card{height:94vh}.preview-top-action.open-new{display:none}}
   @media(max-width:520px){.filters,.folder-grid,.file-list.grid-view,.form-grid,.share-options{grid-template-columns:1fr}.drive-bar{align-items:flex-start}.drive-actions{width:100%;justify-content:flex-end}.filter-state{align-items:flex-start}.empty-actions{flex-direction:column}.empty-action{width:100%}.panel-head{align-items:flex-start;flex-direction:column}.panel-head-actions{width:100%;justify-content:space-between}.file-item{padding:10px}.grid-view .file-item{min-height:160px}.preview-topbar{gap:5px}.preview-heading span{display:none}.share-link-row{display:grid;grid-template-columns:1fr}.share-copy{width:100%}}
 </style>
+<?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>
