@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use CodeIgniter\Database\BaseBuilder;
 use CodeIgniter\Model;
 use DateTimeImmutable;
+use Throwable;
 
 class AssignmentModel extends Model
 {
@@ -11,22 +13,14 @@ class AssignmentModel extends Model
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-    protected $useSoftDeletes   = false; // handled manually below, see softDelete()/restore()
+    protected $useSoftDeletes   = false;
 
     protected $allowedFields = [
-        'title',
-        'description',
-        'due_date',
-        'due_time',
-        'status',
-        'priority',
-        'subject',
-        'link_url',
-        'recurrence',
-        'notes_log',
-        'sort_order',
-        'deleted_at',
-        'reminder_sent_at',
+        'title', 'description', 'due_date', 'due_time', 'status', 'priority',
+        'subject', 'subject_id', 'link_url', 'recurrence', 'recurrence_series_id',
+        'next_occurrence_id', 'notes_log', 'sort_order', 'deleted_at', 'archived_at',
+        'completed_at', 'reminder_sent_at', 'reminder_minutes_before',
+        'custom_reminder_at', 'template_id',
     ];
 
     protected $useTimestamps = true;
@@ -38,116 +32,23 @@ class AssignmentModel extends Model
         'title' => 'required|min_length[1]|max_length[255]',
     ];
 
-    public const PRIORITIES  = ['low', 'medium', 'high'];
+    public const PRIORITIES = ['low', 'medium', 'high'];
     public const RECURRENCES = ['weekly', 'biweekly', 'monthly'];
+    public const STATUSES = ['to_do', 'in_progress', 'blocked', 'submitted', 'done'];
+    public const ACTIVE_STATUSES = ['to_do', 'in_progress', 'blocked'];
 
-    /**
-     * Pending assignments first (soonest due date first, no-due-date last),
-     * then done ones at the bottom. Same-due-date ties break by priority,
-     * highest first. Sorted in PHP rather than SQL so the ordering behaves
-     * identically regardless of DB driver (MySQL vs the Postgres/Supabase
-     * connection this app actually runs on). Soft-deleted rows are excluded.
-     */
-    public function getAllOrdered(): array
+    public static function normalizeStatus(?string $status): string
     {
-        $items = $this->where('deleted_at', null)->orderBy('created_at', 'DESC')->findAll();
+        if ($status === 'pending') {
+            return 'to_do';
+        }
 
-        usort($items, static function (array $a, array $b): int {
-            if ($a['status'] !== $b['status']) {
-                return $a['status'] === 'done' ? 1 : -1;
-            }
-
-            $aDate = $a['due_date'] ?: '9999-12-31';
-            $bDate = $b['due_date'] ?: '9999-12-31';
-
-            if ($aDate !== $bDate) {
-                return strcmp($aDate, $bDate);
-            }
-
-            return self::priorityWeight($b['priority'] ?? 'medium') <=> self::priorityWeight($a['priority'] ?? 'medium');
-        });
-
-        return $items;
+        return in_array($status, self::STATUSES, true) ? $status : 'to_do';
     }
 
-    /**
-     * Flip an assignment between pending and done. If it's being completed
-     * and has a recurrence set with a due date, spins off the next
-     * occurrence automatically.
-     */
-    public function toggleStatus(int $id): bool
+    public static function normalizePriority(?string $priority): string
     {
-        $assignment = $this->find($id);
-
-        if (! $assignment) {
-            return false;
-        }
-
-        $completing = $assignment['status'] !== 'done';
-        $newStatus  = $completing ? 'done' : 'pending';
-
-        $ok = $this->update($id, ['status' => $newStatus]);
-
-        if ($ok && $completing && ! empty($assignment['recurrence']) && ! empty($assignment['due_date'])) {
-            $this->createNextOccurrence($assignment);
-        }
-
-        return $ok;
-    }
-
-    /**
-     * Insert the next occurrence of a recurring assignment, due date
-     * advanced by its repeat interval. Everything else carries over as a
-     * fresh copy — notes and the reminder flag deliberately do not, since
-     * this is effectively a new task.
-     */
-    private function createNextOccurrence(array $assignment): void
-    {
-        $this->insert([
-            'title'       => $assignment['title'],
-            'description' => $assignment['description'],
-            'due_date'    => self::nextDueDate((string) $assignment['due_date'], (string) $assignment['recurrence']),
-            'due_time'    => $assignment['due_time'],
-            'status'      => 'pending',
-            'priority'    => $assignment['priority'],
-            'subject'     => $assignment['subject'],
-            'link_url'    => $assignment['link_url'],
-            'recurrence'  => $assignment['recurrence'],
-        ]);
-    }
-
-    public static function nextDueDate(string $dueDate, string $recurrence): string
-    {
-        if ($recurrence === 'weekly') {
-            return date('Y-m-d', strtotime($dueDate . ' +1 week'));
-        }
-
-        if ($recurrence === 'biweekly') {
-            return date('Y-m-d', strtotime($dueDate . ' +2 weeks'));
-        }
-
-        if ($recurrence === 'monthly') {
-            // Deliberately not strtotime('+1 month') here: PHP overflows
-            // rather than clamping (Jan 31 "+1 month" lands in early March,
-            // not Feb 28). Compute the target month/year directly and clamp
-            // the day to whatever that month actually has.
-            $date  = new DateTimeImmutable($dueDate);
-            $year  = (int) $date->format('Y');
-            $month = (int) $date->format('n') + 1;
-            $day   = (int) $date->format('j');
-
-            if ($month > 12) {
-                $month = 1;
-                $year++;
-            }
-
-            $daysInTargetMonth = (int) (new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
-            $day = min($day, $daysInTargetMonth);
-
-            return sprintf('%04d-%02d-%02d', $year, $month, $day);
-        }
-
-        return $dueDate;
+        return in_array($priority, self::PRIORITIES, true) ? $priority : 'medium';
     }
 
     public static function normalizeRecurrence(?string $recurrence): ?string
@@ -155,262 +56,541 @@ class AssignmentModel extends Model
         return in_array($recurrence, self::RECURRENCES, true) ? $recurrence : null;
     }
 
-    /**
-     * Soft-delete: hide it from the queue without losing the row, so a
-     * delete can be undone.
-     */
-    public function softDelete(int $id): bool
-    {
-        return $this->update($id, ['deleted_at' => date('Y-m-d H:i:s')]);
-    }
-
-    /**
-     * Undo a soft delete.
-     */
-    public function restore(int $id): bool
-    {
-        return $this->update($id, ['deleted_at' => null]);
-    }
-
-    /**
-     * Append a timestamped line to an assignment's running notes log.
-     */
-    public function addNote(int $id, string $note): bool
-    {
-        $assignment = $this->find($id);
-
-        if (! $assignment) {
-            return false;
-        }
-
-        $line     = '[' . date('M j, g:i A') . '] ' . $note;
-        $existing = $assignment['notes_log'] ?? '';
-        $updated  = $existing !== '' && $existing !== null ? $existing . "\n" . $line : $line;
-
-        return $this->update($id, ['notes_log' => $updated]);
-    }
-
-    /**
-     * Persist a manual drag-and-drop order: $ids is the full list of
-     * assignment ids in their new top-to-bottom order.
-     */
-    public function saveOrder(array $ids): void
-    {
-        foreach (array_values($ids) as $index => $id) {
-            $id = (int) $id;
-            if ($id > 0) {
-                $this->update($id, ['sort_order' => $index]);
-            }
-        }
-    }
-
-    /**
-     * Normalize a submitted priority value to one of the allowed options.
-     */
-    public static function normalizePriority(?string $priority): string
-    {
-        return in_array($priority, self::PRIORITIES, true) ? $priority : 'medium';
-    }
-
     public static function priorityWeight(string $priority): int
     {
         return match ($priority) {
-            'high'  => 3,
-            'low'   => 1,
+            'high' => 3,
+            'low'  => 1,
             default => 2,
         };
     }
 
     /**
-     * True if a pending assignment's due date (and due time, if set) has
-     * passed. Assignments with no due_time default to end-of-day (23:59),
-     * so a date-only assignment behaves exactly as before — safe all day,
-     * overdue starting the next calendar day. Setting an explicit time
-     * enables same-day overdue detection.
+     * Build the server-side filtered queue used by list view and pagination.
      */
-    public static function isOverdue(array $assignment): bool
+    public function getFilteredPage(array $filters, int $perPage = 25): array
     {
-        if ($assignment['status'] === 'done' || empty($assignment['due_date'])) {
-            return false;
+        $this->select('assignments.*, assignment_subjects.name AS subject_name, assignment_subjects.code AS subject_code, assignment_subjects.color AS subject_color')
+            ->join('assignment_subjects', 'assignment_subjects.id = assignments.subject_id', 'left')
+            ->where('assignments.deleted_at', null)
+            ->where('assignments.archived_at', null);
+
+        $this->applyFilters($this->builder(), $filters);
+        $this->applySort($filters['sort'] ?? 'due');
+
+        return $this->paginate(max(10, min($perPage, 100)), 'assignments');
+    }
+
+    public function getBoardItems(array $filters, int $limit = 500): array
+    {
+        $this->select('assignments.*, assignment_subjects.name AS subject_name, assignment_subjects.code AS subject_code, assignment_subjects.color AS subject_color')
+            ->join('assignment_subjects', 'assignment_subjects.id = assignments.subject_id', 'left')
+            ->where('assignments.deleted_at', null)
+            ->where('assignments.archived_at', null);
+
+        $this->applyFilters($this->builder(), array_merge($filters, ['tab' => 'all']));
+        $this->orderBy('assignments.sort_order', 'ASC')
+            ->orderBy('assignments.due_date', 'ASC')
+            ->orderBy('assignments.id', 'DESC');
+
+        return $this->findAll(max(1, min($limit, 1000)));
+    }
+
+    public function getCalendarItems(string $start, string $end, array $filters = []): array
+    {
+        $this->select('assignments.*, assignment_subjects.name AS subject_name, assignment_subjects.code AS subject_code, assignment_subjects.color AS subject_color')
+            ->join('assignment_subjects', 'assignment_subjects.id = assignments.subject_id', 'left')
+            ->where('assignments.deleted_at', null)
+            ->where('assignments.archived_at', null)
+            ->where('assignments.due_date IS NOT NULL', null, false)
+            ->where('assignments.due_date >=', $start)
+            ->where('assignments.due_date <=', $end);
+
+        $this->applySearchAndSimpleFilters($filters);
+
+        return $this->orderBy('assignments.due_date', 'ASC')
+            ->orderBy('assignments.due_time', 'ASC')
+            ->findAll(1000);
+    }
+
+    public function getRecyclePage(int $perPage = 25): array
+    {
+        return $this->where('deleted_at IS NOT NULL', null, false)
+            ->orderBy('deleted_at', 'DESC')
+            ->paginate(max(10, min($perPage, 100)), 'assignment_recycle');
+    }
+
+    public function getArchivedPage(int $perPage = 25): array
+    {
+        return $this->where('deleted_at', null)
+            ->where('archived_at IS NOT NULL', null, false)
+            ->orderBy('archived_at', 'DESC')
+            ->paginate(max(10, min($perPage, 100)), 'assignment_archive');
+    }
+
+    private function applyFilters(BaseBuilder $builder, array $filters): void
+    {
+        $this->applySearchAndSimpleFilters($filters);
+
+        $tab = (string) ($filters['tab'] ?? 'all');
+        $today = date('Y-m-d');
+        $weekEnd = date('Y-m-d', strtotime('+7 days'));
+
+        match ($tab) {
+            'today' => $builder->where('assignments.due_date', $today)
+                ->whereIn('assignments.status', self::ACTIVE_STATUSES),
+            'upcoming' => $builder->where('assignments.due_date >', $today)
+                ->where('assignments.due_date <=', $weekEnd)
+                ->whereIn('assignments.status', self::ACTIVE_STATUSES),
+            'overdue' => $builder->where('assignments.due_date <', $today)
+                ->whereIn('assignments.status', self::ACTIVE_STATUSES),
+            'no_deadline' => $builder->where('assignments.due_date', null)
+                ->whereIn('assignments.status', self::ACTIVE_STATUSES),
+            'completed' => $builder->whereIn('assignments.status', ['submitted', 'done']),
+            default => null,
+        };
+    }
+
+    private function applySearchAndSimpleFilters(array $filters): void
+    {
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $db = db_connect();
+            $noteSubquery = $db->table('assignment_notes')->select('assignment_id')->like('content', $q);
+            $subtaskSubquery = $db->table('assignment_subtasks')->select('assignment_id')->like('title', $q);
+            $fileSubquery = $db->table('assignment_file_links')
+                ->select('assignment_file_links.assignment_id')
+                ->join('important_files', 'important_files.id = assignment_file_links.important_file_id', 'inner')
+                ->groupStart()->like('important_files.title', $q)->orLike('important_files.original_filename', $q)->groupEnd();
+            $this->groupStart()
+                ->like('assignments.title', $q)
+                ->orLike('assignments.description', $q)
+                ->orLike('assignments.subject', $q)
+                ->orLike('assignment_subjects.name', $q)
+                ->orLike('assignment_subjects.code', $q)
+                ->orLike('assignments.link_url', $q)
+                ->orLike('assignments.notes_log', $q)
+                ->orWhereIn('assignments.id', $noteSubquery)
+                ->orWhereIn('assignments.id', $subtaskSubquery)
+                ->orWhereIn('assignments.id', $fileSubquery)
+                ->groupEnd();
         }
 
-        $time = ! empty($assignment['due_time']) ? $assignment['due_time'] : '23:59';
+        $status = trim((string) ($filters['status'] ?? ''));
+        if ($status !== '' && in_array($status, self::STATUSES, true)) {
+            $this->where('assignments.status', $status);
+        }
 
-        return strtotime($assignment['due_date'] . ' ' . $time) < time();
+        $priority = trim((string) ($filters['priority'] ?? ''));
+        if ($priority !== '' && in_array($priority, self::PRIORITIES, true)) {
+            $this->where('assignments.priority', $priority);
+        }
+
+        $subjectId = (int) ($filters['subject_id'] ?? 0);
+        if ($subjectId > 0) {
+            $this->where('assignments.subject_id', $subjectId);
+        }
+    }
+
+    private function applySort(string $sort): void
+    {
+        switch ($sort) {
+            case 'priority':
+                // Portable priority ordering for PostgreSQL and MySQL.
+                $this->orderBy("CASE assignments.priority WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END", 'DESC', false)
+                    ->orderBy('assignments.due_date', 'ASC');
+                break;
+            case 'newest':
+                $this->orderBy('assignments.created_at', 'DESC');
+                break;
+            case 'oldest':
+                $this->orderBy('assignments.created_at', 'ASC');
+                break;
+            case 'alpha':
+                $this->orderBy('assignments.title', 'ASC');
+                break;
+            case 'subject':
+                $this->orderBy('assignment_subjects.name', 'ASC')
+                    ->orderBy('assignments.title', 'ASC');
+                break;
+            case 'manual':
+                $this->orderBy('assignments.sort_order', 'ASC')
+                    ->orderBy('assignments.id', 'DESC');
+                break;
+            case 'due':
+            default:
+                $this->orderBy("CASE WHEN assignments.status IN ('submitted','done') THEN 1 ELSE 0 END", 'ASC', false)
+                    ->orderBy("CASE WHEN assignments.due_date IS NULL THEN 1 ELSE 0 END", 'ASC', false)
+                    ->orderBy('assignments.due_date', 'ASC')
+                    ->orderBy('assignments.due_time', 'ASC')
+                    ->orderBy("CASE assignments.priority WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END", 'DESC', false);
+                break;
+        }
+
+        $this->orderBy('assignments.id', 'DESC');
+    }
+
+    public function getSummaryCounts(): array
+    {
+        $base = static fn () => db_connect()->table('assignments')->where('deleted_at', null)->where('archived_at', null);
+        $today = date('Y-m-d');
+        $weekEnd = date('Y-m-d', strtotime('+7 days'));
+
+        return [
+            'all' => $base()->countAllResults(),
+            'today' => $base()->where('due_date', $today)->whereIn('status', self::ACTIVE_STATUSES)->countAllResults(),
+            'upcoming' => $base()->where('due_date >', $today)->where('due_date <=', $weekEnd)->whereIn('status', self::ACTIVE_STATUSES)->countAllResults(),
+            'overdue' => $base()->where('due_date <', $today)->whereIn('status', self::ACTIVE_STATUSES)->countAllResults(),
+            'no_deadline' => $base()->where('due_date', null)->whereIn('status', self::ACTIVE_STATUSES)->countAllResults(),
+            'completed' => $base()->whereIn('status', ['submitted', 'done'])->countAllResults(),
+            'archive' => db_connect()->table('assignments')->where('deleted_at', null)->where('archived_at IS NOT NULL', null, false)->countAllResults(),
+            'recycle' => db_connect()->table('assignments')->where('deleted_at IS NOT NULL', null, false)->countAllResults(),
+        ];
+    }
+
+    public function getAnalytics(): array
+    {
+        $db = db_connect();
+        $startWeek = date('Y-m-d 00:00:00', strtotime('monday this week'));
+        $startMonth = date('Y-m-01 00:00:00');
+        $completedWeek = $db->table('assignments')->where('completed_at >=', $startWeek)->countAllResults();
+        $completedMonth = $db->table('assignments')->where('completed_at >=', $startMonth)->countAllResults();
+        $completedRows = $db->table('assignments')->select('completed_at,due_date,due_time')
+            ->where('completed_at IS NOT NULL', null, false)->get(10000)->getResultArray();
+        $onTime = 0;
+        $lateHours = [];
+        foreach ($completedRows as $row) {
+            if (empty($row['due_date'])) {
+                continue;
+            }
+            $due = strtotime($row['due_date'] . ' ' . ($row['due_time'] ?: '23:59'));
+            $completed = strtotime((string) $row['completed_at']);
+            if ($completed <= $due) {
+                $onTime++;
+            } else {
+                $lateHours[] = ($completed - $due) / 3600;
+            }
+        }
+        $withDeadline = count(array_filter($completedRows, static fn (array $row): bool => ! empty($row['due_date'])));
+        $topSubject = $db->table('assignments')
+            ->select("COALESCE(assignment_subjects.name, assignments.subject, 'General') AS label, COUNT(*) AS workload", false)
+            ->join('assignment_subjects', 'assignment_subjects.id = assignments.subject_id', 'left')
+            ->where('assignments.deleted_at', null)->where('assignments.archived_at', null)
+            ->whereIn('assignments.status', self::ACTIVE_STATUSES)
+            ->groupBy("COALESCE(assignment_subjects.name, assignments.subject, 'General')", false)
+            ->orderBy('workload', 'DESC')->limit(1)->get()->getRowArray();
+        return [
+            'completed_week' => $completedWeek,
+            'completed_month' => $completedMonth,
+            'on_time_percent' => $withDeadline > 0 ? (int) round(($onTime / $withDeadline) * 100) : 0,
+            'active_total' => $db->table('assignments')->where('deleted_at', null)->where('archived_at', null)->whereIn('status', self::ACTIVE_STATUSES)->countAllResults(),
+            'average_delay_hours' => $lateHours ? (int) round(array_sum($lateHours) / count($lateHours)) : 0,
+            'top_subject' => $topSubject['label'] ?? 'None',
+            'top_subject_count' => (int) ($topSubject['workload'] ?? 0),
+        ];
     }
 
     /**
-     * How many assignments in a list are currently overdue. Shared by the
-     * site-wide banner and the reminder email so both describe urgency
-     * the same way.
+     * Set a workflow status and safely create one recurring occurrence.
      */
+    public function setStatus(int $id, string $status): bool
+    {
+        $status = self::normalizeStatus($status);
+        $assignment = $this->find($id);
+        if (! $assignment) {
+            return false;
+        }
+
+        $db = db_connect();
+        $db->transStart();
+
+        $fields = ['status' => $status];
+        if ($status === 'done') {
+            $fields['completed_at'] = date('Y-m-d H:i:s');
+        } elseif ($assignment['status'] === 'done') {
+            $fields['completed_at'] = null;
+        }
+        if ($status !== AssignmentModel::normalizeStatus($assignment['status'] ?? null) && in_array($status, self::ACTIVE_STATUSES, true)) {
+            $fields['reminder_sent_at'] = null;
+        }
+        $this->update($id, $fields);
+
+        if ($status === 'done' && ! empty($assignment['recurrence']) && ! empty($assignment['due_date']) && empty($assignment['next_occurrence_id'])) {
+            $seriesId = (string) ($assignment['recurrence_series_id'] ?: self::uuid());
+            $nextDue = self::nextDueDateAfterToday((string) $assignment['due_date'], (string) $assignment['recurrence']);
+            $nextId = $this->insert([
+                'title' => $assignment['title'],
+                'description' => $assignment['description'],
+                'due_date' => $nextDue,
+                'due_time' => $assignment['due_time'],
+                'status' => 'to_do',
+                'priority' => $assignment['priority'],
+                'subject' => $assignment['subject'],
+                'subject_id' => $assignment['subject_id'] ?? null,
+                'link_url' => $assignment['link_url'],
+                'recurrence' => $assignment['recurrence'],
+                'recurrence_series_id' => $seriesId,
+                'reminder_minutes_before' => $assignment['reminder_minutes_before'] ?? 1440,
+                'template_id' => $assignment['template_id'] ?? null,
+            ], true);
+
+            if ($nextId) {
+                $this->update($id, [
+                    'recurrence_series_id' => $seriesId,
+                    'next_occurrence_id' => (int) $nextId,
+                ]);
+            }
+        }
+
+        $db->transComplete();
+        return $db->transStatus();
+    }
+
+    public function toggleStatus(int $id): bool
+    {
+        $assignment = $this->find($id);
+        if (! $assignment) {
+            return false;
+        }
+
+        return $this->setStatus($id, $assignment['status'] === 'done' ? 'to_do' : 'done');
+    }
+
+    public static function nextDueDateAfterToday(string $dueDate, string $recurrence): string
+    {
+        $next = self::nextDueDate($dueDate, $recurrence);
+        $today = date('Y-m-d');
+        $guard = 0;
+        while ($next < $today && $guard < 120) {
+            $next = self::nextDueDate($next, $recurrence);
+            $guard++;
+        }
+        return $next;
+    }
+
+    public static function nextDueDate(string $dueDate, string $recurrence): string
+    {
+        if ($recurrence === 'weekly') {
+            return date('Y-m-d', strtotime($dueDate . ' +1 week'));
+        }
+        if ($recurrence === 'biweekly') {
+            return date('Y-m-d', strtotime($dueDate . ' +2 weeks'));
+        }
+        if ($recurrence === 'monthly') {
+            $date = new DateTimeImmutable($dueDate);
+            $year = (int) $date->format('Y');
+            $month = (int) $date->format('n') + 1;
+            $day = (int) $date->format('j');
+            if ($month > 12) {
+                $month = 1;
+                $year++;
+            }
+            $days = (int) (new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
+            return sprintf('%04d-%02d-%02d', $year, $month, min($day, $days));
+        }
+        return $dueDate;
+    }
+
+    public function softDelete(int $id): bool
+    {
+        return $this->update($id, ['deleted_at' => date('Y-m-d H:i:s')]);
+    }
+
+    public function restore(int $id): bool
+    {
+        return $this->update($id, ['deleted_at' => null]);
+    }
+
+    public function archive(int $id): bool
+    {
+        return $this->update($id, ['archived_at' => date('Y-m-d H:i:s')]);
+    }
+
+    public function unarchive(int $id): bool
+    {
+        return $this->update($id, ['archived_at' => null]);
+    }
+
+    public function permanentlyDelete(int $id): bool
+    {
+        return (bool) $this->builder()->where('id', $id)->delete();
+    }
+
+    public function duplicateAssignment(int $id): ?int
+    {
+        $a = $this->find($id);
+        if (! $a) {
+            return null;
+        }
+
+        return (int) $this->insert([
+            'title' => $a['title'] . ' (Copy)',
+            'description' => $a['description'],
+            'due_date' => $a['due_date'],
+            'due_time' => $a['due_time'],
+            'status' => 'to_do',
+            'priority' => $a['priority'],
+            'subject' => $a['subject'],
+            'subject_id' => $a['subject_id'] ?? null,
+            'link_url' => $a['link_url'],
+            'recurrence' => $a['recurrence'],
+            'reminder_minutes_before' => $a['reminder_minutes_before'] ?? 1440,
+            'template_id' => $a['template_id'] ?? null,
+        ], true);
+    }
+
+    public function saveOrder(array $ids): void
+    {
+        foreach (array_values($ids) as $index => $id) {
+            if (($id = (int) $id) > 0) {
+                $this->update($id, ['sort_order' => $index]);
+            }
+        }
+    }
+
+    public static function isOverdue(array $assignment): bool
+    {
+        $status = self::normalizeStatus($assignment['status'] ?? null);
+        if (! in_array($status, self::ACTIVE_STATUSES, true) || empty($assignment['due_date'])) {
+            return false;
+        }
+        return strtotime($assignment['due_date'] . ' ' . ($assignment['due_time'] ?: '23:59')) < time();
+    }
+
     public static function countOverdue(array $assignments): int
     {
         return count(array_filter($assignments, [self::class, 'isOverdue']));
     }
 
-    /**
-     * Pending assignments due within the next $daysAhead days, or already
-     * overdue. Powers the site-wide "due soon" banner (daysAhead=2) and
-     * the weekly planning digest (daysAhead=7).
-     */
     public function getUrgent(int $daysAhead = 2): array
     {
         $limit = date('Y-m-d', strtotime("+{$daysAhead} days"));
-
         return $this->where('deleted_at', null)
-            ->where('status', 'pending')
+            ->where('archived_at', null)
+            ->whereIn('status', self::ACTIVE_STATUSES)
             ->where('due_date <=', $limit)
             ->orderBy('due_date', 'ASC')
             ->findAll();
     }
 
     /**
-     * Pending assignments that are due soon (within $daysAhead) OR already
-     * overdue, and haven't already been emailed today. Re-includes an
-     * assignment on each new day it's still urgent — so it nags daily
-     * until you mark it done, push the due date out, or delete it —
-     * instead of emailing once and going silent.
+     * Custom reminder-aware queue. A custom timestamp takes precedence;
+     * otherwise the due timestamp minus reminder_minutes_before is used.
      */
-    public function getDueSoonForReminder(int $daysAhead = 2): array
+    public function getDueSoonForReminder(int $daysAhead = 7): array
     {
-        $limit      = date('Y-m-d', strtotime("+{$daysAhead} days"));
-        $startOfDay = date('Y-m-d 00:00:00');
-
-        return $this->where('deleted_at', null)
-            ->where('status', 'pending')
-            ->where('due_date <=', $limit)
+        $candidates = $this->where('deleted_at', null)
+            ->where('archived_at', null)
+            ->whereIn('status', self::ACTIVE_STATUSES)
             ->groupStart()
-                ->where('reminder_sent_at', null)
-                ->orWhere('reminder_sent_at <', $startOfDay)
+                ->where('due_date <=', date('Y-m-d', strtotime("+{$daysAhead} days")))
+                ->orWhere('custom_reminder_at IS NOT NULL', null, false)
             ->groupEnd()
             ->orderBy('due_date', 'ASC')
-            ->findAll();
+            ->findAll(1000);
+
+        $now = time();
+        $todayStart = strtotime(date('Y-m-d 00:00:00'));
+        return array_values(array_filter($candidates, static function (array $a) use ($now, $todayStart): bool {
+            if (! empty($a['reminder_sent_at']) && strtotime((string) $a['reminder_sent_at']) >= $todayStart) {
+                return false;
+            }
+            if (! empty($a['custom_reminder_at'])) {
+                return strtotime((string) $a['custom_reminder_at']) <= $now;
+            }
+            if (empty($a['due_date'])) {
+                return false;
+            }
+            $due = strtotime($a['due_date'] . ' ' . ($a['due_time'] ?: '23:59'));
+            $offset = max(0, (int) ($a['reminder_minutes_before'] ?? 1440)) * 60;
+            return ($due - $offset) <= $now;
+        }));
     }
 
-    /**
-     * Mark that a reminder email went out today for this assignment. Since
-     * this only guards against re-sending on the *same* day, it'll be
-     * eligible again automatically once tomorrow starts.
-     */
     public function markReminderSent(int $id): bool
     {
         return $this->update($id, ['reminder_sent_at' => date('Y-m-d H:i:s')]);
     }
 
-    /**
-     * Human, urgency-aware due-date text: "Due today, 11:59 PM", "Due in
-     * 3 days", "2 days overdue"... Done items just get a plain
-     * "Due <date>" since urgency no longer applies. The due_time suffix is
-     * only appended for today/tomorrow/future — once something's overdue
-     * by whole days, the exact time it was due stops being useful.
-     * Returns null when there's no due date.
-     */
     public static function relativeDueDate(array $assignment): ?string
     {
         if (empty($assignment['due_date'])) {
             return null;
         }
-
-        $timeSuffix = ! empty($assignment['due_time'])
-            ? ', ' . date('g:i A', strtotime($assignment['due_time']))
-            : '';
-
-        $formatted = date('M j, Y', strtotime((string) $assignment['due_date'])) . $timeSuffix;
-
-        if ($assignment['status'] === 'done') {
-            return "Due {$formatted}";
+        $suffix = ! empty($assignment['due_time']) ? ', ' . date('g:i A', strtotime($assignment['due_time'])) : '';
+        if (in_array(self::normalizeStatus($assignment['status'] ?? null), ['submitted', 'done'], true)) {
+            return 'Due ' . date('M j, Y', strtotime($assignment['due_date'])) . $suffix;
         }
-
         $today = new DateTimeImmutable(date('Y-m-d'));
-        $due   = new DateTimeImmutable(date('Y-m-d', strtotime((string) $assignment['due_date'])));
-        $diff  = (int) $today->diff($due)->format('%r%a');
-
+        $due = new DateTimeImmutable($assignment['due_date']);
+        $diff = (int) $today->diff($due)->format('%r%a');
         return match (true) {
-            $diff === 0  => 'Due today' . $timeSuffix,
-            $diff === 1  => 'Due tomorrow' . $timeSuffix,
-            $diff > 1    => "Due in {$diff} days" . $timeSuffix,
+            $diff === 0 => 'Due today' . $suffix,
+            $diff === 1 => 'Due tomorrow' . $suffix,
+            $diff > 1 => "Due in {$diff} days" . $suffix,
             $diff === -1 => 'Due yesterday',
-            default      => abs($diff) . ' days overdue',
+            default => abs($diff) . ' days overdue',
         };
     }
 
-    /**
-     * Soft-delete every currently-done, non-deleted assignment at once.
-     * Returns the affected ids so the caller can offer an Undo.
-     */
     public function clearCompleted(): array
     {
-        $done = $this->where('deleted_at', null)->where('status', 'done')->findAll();
-        $ids  = array_column($done, 'id');
-
-        if ($ids !== []) {
-            $this->whereIn('id', $ids)->update(null, ['deleted_at' => date('Y-m-d H:i:s')]);
+        $rows = $this->where('deleted_at', null)->whereIn('status', ['submitted', 'done'])->findAll();
+        $ids = array_map('intval', array_column($rows, 'id'));
+        if ($ids) {
+            $this->whereIn('id', $ids)->set(['archived_at' => date('Y-m-d H:i:s')])->update();
         }
-
         return $ids;
     }
 
-    /**
-     * Mark every currently-pending, non-deleted assignment as done at once.
-     * Returns the affected ids so the caller can offer an Undo.
-     */
     public function markAllDone(): array
     {
-        $pending = $this->where('deleted_at', null)->where('status', 'pending')->findAll();
-        $ids     = array_column($pending, 'id');
-
-        if ($ids !== []) {
-            $this->whereIn('id', $ids)->update(null, ['status' => 'done']);
+        $rows = $this->where('deleted_at', null)->where('archived_at', null)->whereIn('status', self::ACTIVE_STATUSES)->findAll();
+        $ids = [];
+        foreach ($rows as $row) {
+            if ($this->setStatus((int) $row['id'], 'done')) {
+                $ids[] = (int) $row['id'];
+            }
         }
-
         return $ids;
     }
 
-    /**
-     * Undo for clearCompleted(): un-delete a batch of ids.
-     */
     public function restoreMany(array $ids): void
     {
-        $ids = array_filter(array_map('intval', $ids));
-
-        if ($ids !== []) {
-            $this->whereIn('id', $ids)->update(null, ['deleted_at' => null]);
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if ($ids) {
+            $this->whereIn('id', $ids)->set(['deleted_at' => null, 'archived_at' => null])->update();
         }
     }
 
-    /**
-     * Undo for markAllDone(): put a batch of ids back to pending.
-     */
     public function unmarkMany(array $ids): void
     {
-        $ids = array_filter(array_map('intval', $ids));
-
-        if ($ids !== []) {
-            $this->whereIn('id', $ids)->update(null, ['status' => 'pending']);
+        foreach (array_values(array_filter(array_map('intval', $ids))) as $id) {
+            $this->setStatus($id, 'to_do');
         }
     }
 
-    /**
-     * Deterministic color for a subject tag, derived from the subject text
-     * itself so the same subject always renders the same color with no
-     * configuration needed. Returns CSS custom-property-friendly "r,g,b".
-     */
+    public function purgeDeletedOlderThan(int $days = 30): int
+    {
+        $cutoff = date('Y-m-d H:i:s', strtotime('-' . max(1, $days) . ' days'));
+        $rows = $this->select('id')->where('deleted_at <', $cutoff)->findAll(5000);
+        $ids = array_map('intval', array_column($rows, 'id'));
+        if (! $ids) {
+            return 0;
+        }
+        $this->builder()->whereIn('id', $ids)->delete();
+        return count($ids);
+    }
+
     public static function subjectColorRgb(string $subject): string
     {
-        $palette = [
-            '95,217,232',  // cyan
-            '155,125,238', // violet
-            '242,195,107', // gold
-            '229,99,107',  // red
-            '111,207,151', // green
-            '242,153,74',  // orange
-            '187,107,217', // purple
-            '86,204,242',  // sky blue
-        ];
+        $palette = ['66,233,255', '139,99,255', '255,209,102', '255,105,127', '111,207,151', '242,153,74', '187,107,217', '86,204,242'];
+        return $palette[crc32(strtolower(trim($subject))) % count($palette)];
+    }
 
-        $hash = crc32(strtolower(trim($subject)));
-
-        return $palette[$hash % count($palette)];
+    private static function uuid(): string
+    {
+        $hex = bin2hex(random_bytes(16));
+        return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
     }
 }

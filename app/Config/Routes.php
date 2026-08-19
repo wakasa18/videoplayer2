@@ -67,19 +67,43 @@ $routes->get('notes', 'Notes::index');
 
 // Assignments
 $routes->get('assignments', 'Assignments::index');
+$routes->get('assignments/calendar-feed', 'Assignments::calendarFeed');
+$routes->get('assignments/recycle', 'Assignments::recycle');
+$routes->get('assignments/archive', 'Assignments::archivePage');
 $routes->get('assignments/export', 'Assignments::export');
 $routes->post('assignments', 'Assignments::store');
-$routes->post('assignments/import', 'Assignments::import');
+$routes->post('assignments/import/preview', 'Assignments::importPreview');
+$routes->post('assignments/import/confirm', 'Assignments::importConfirm');
+$routes->post('assignments/bulk-action', 'Assignments::bulkAction');
 $routes->post('assignments/clear-completed', 'Assignments::clearCompleted');
 $routes->post('assignments/mark-all-done', 'Assignments::markAllDone');
 $routes->post('assignments/bulk-undo', 'Assignments::bulkUndo');
 $routes->post('assignments/reorder', 'Assignments::reorder');
+$routes->post('assignments/subjects', 'Assignments::saveSubject');
+$routes->post('assignments/subjects/(:num)/archive', 'Assignments::archiveSubject/$1');
+$routes->post('assignments/templates', 'Assignments::saveTemplate');
+$routes->post('assignments/templates/(:num)/delete', 'Assignments::deleteTemplate/$1');
 $routes->post('assignments/(:num)/update', 'Assignments::update/$1');
+$routes->post('assignments/(:num)/status', 'Assignments::status/$1');
 $routes->post('assignments/(:num)/toggle', 'Assignments::toggle/$1');
+$routes->post('assignments/(:num)/duplicate', 'Assignments::duplicate/$1');
 $routes->post('assignments/(:num)/delete', 'Assignments::destroy/$1');
+$routes->post('assignments/(:num)/archive', 'Assignments::archive/$1');
 $routes->post('assignments/(:num)/restore', 'Assignments::restore/$1');
+$routes->post('assignments/(:num)/unarchive', 'Assignments::unarchive/$1');
+$routes->post('assignments/(:num)/purge', 'Assignments::purge/$1');
 $routes->post('assignments/(:num)/snooze', 'Assignments::snooze/$1');
+$routes->post('assignments/(:num)/deadline', 'Assignments::updateDeadline/$1');
 $routes->post('assignments/(:num)/notes', 'Assignments::addNote/$1');
+$routes->post('assignments/(:num)/notes/(:num)/update', 'Assignments::updateNote/$1/$2');
+$routes->post('assignments/(:num)/notes/(:num)/pin', 'Assignments::pinNote/$1/$2');
+$routes->post('assignments/(:num)/notes/(:num)/delete', 'Assignments::deleteNote/$1/$2');
+$routes->post('assignments/(:num)/subtasks', 'Assignments::addSubtask/$1');
+$routes->post('assignments/(:num)/subtasks/(:num)/update', 'Assignments::updateSubtask/$1/$2');
+$routes->post('assignments/(:num)/subtasks/(:num)/toggle', 'Assignments::toggleSubtask/$1/$2');
+$routes->post('assignments/(:num)/subtasks/(:num)/delete', 'Assignments::deleteSubtask/$1/$2');
+$routes->post('assignments/(:num)/attachments', 'Assignments::attachFile/$1');
+$routes->post('assignments/(:num)/attachments/(:num)/delete', 'Assignments::detachFile/$1/$2');
 
 // Deadline reminder cron (see vercel.json "crons")
 $routes->get('cron/check-deadlines', 'Cron::checkDeadlines');

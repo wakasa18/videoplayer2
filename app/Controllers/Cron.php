@@ -104,10 +104,11 @@ class Cron extends BaseController
     private function runDigest(): array
     {
         $model  = new AssignmentModel();
-        $urgent = $model->getDueSoonForReminder(2);
+        $purged  = $model->purgeDeletedOlderThan(30);
+        $urgent = $model->getDueSoonForReminder(7);
 
         if ($urgent === []) {
-            return ['checked' => 0, 'sent' => [], 'failed' => []];
+            return ['checked' => 0, 'sent' => [], 'failed' => [], 'purged_deleted' => $purged];
         }
 
         $ok = $this->sendDigestEmail($urgent);
@@ -123,6 +124,7 @@ class Cron extends BaseController
             'checked' => count($urgent),
             'sent'    => $ok ? $titles : [],
             'failed'  => $ok ? [] : $titles,
+            'purged_deleted' => $purged,
         ];
     }
 

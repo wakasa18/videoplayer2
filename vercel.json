@@ -29,11 +29,11 @@
   "crons": [
     {
       "path": "/cron/check-deadlines",
-      "schedule": "0 1 * * *"
+      "schedule": "0 23 * * *"
     },
     {
       "path": "/cron/weekly-digest",
-      "schedule": "0 11 * * 0"
+      "schedule": "10 23 * * 0"
     },
     {
       "path": "/cron/files-maintenance",
