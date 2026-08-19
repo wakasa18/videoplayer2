@@ -16,18 +16,18 @@
   <main class="login-shell">
     <section class="login-stage">
       <aside class="login-intro">
-        <span class="login-console-label">Archive OS // v2.0</span>
+        <span class="login-console-label">Private Adventure Hub</span>
         <h2>Damon's Archive</h2>
-        <p>A private command center for your files, videos, tasks, and secure shared links.</p>
+        <p>Your private game-style hub for files, videos, assignments, and secure shared links.</p>
         <div class="login-feature"><span>01</span><strong>Credential protected</strong></div>
         <div class="login-feature"><span>02</span><strong>Encrypted file vault</strong></div>
         <div class="login-feature"><span>03</span><strong>Controlled share links</strong></div>
       </aside>
       <section class="login-card">
       <div class="login-mark">DA</div>
-      <p class="eyebrow">Secure Arcade Terminal</p>
+      <p class="eyebrow">Secure Player Portal</p>
       <h1>Player Login</h1>
-      <p class="login-sub">Enter your access credentials to load the private archive system.</p>
+      <p class="login-sub">Enter your access credentials to continue to your private hub.</p>
 
       <?php if (session()->getFlashdata('error')): ?><div class="flash error" role="alert"><?= esc(session()->getFlashdata('error')) ?></div><?php endif; ?>
       <?php if (session()->getFlashdata('success')): ?><div class="flash success" role="status"><?= esc(session()->getFlashdata('success')) ?></div><?php endif; ?>
@@ -45,7 +45,7 @@
       </form>
 
       <?php if (! $configured): ?><div class="config-warning">Set <strong>SITE_LOGIN_USERNAME</strong> and either <strong>SITE_LOGIN_PASSWORD_HASH</strong> or <strong>SITE_LOGIN_PASSWORD</strong> in Vercel before signing in.</div><?php endif; ?>
-      <div class="login-footer">Press start to enter // Authorized access only</div>
+      <div class="login-footer">Ready to play · Authorized access only</div>
       </section>
     </section>
   </main>

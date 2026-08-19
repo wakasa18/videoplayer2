@@ -20,15 +20,15 @@
 
   <section class="home-hero">
     <header class="home-header">
-      <p class="eyebrow">Arcade Archive // Root Access</p>
+      <p class="eyebrow">Adventure Hub · Player 01</p>
       <h1>Damon's Archive</h1>
       <div class="starline"></div>
     </header>
-    <p class="home-sub">Your private arcade-style command center for videos, tasks, notes, and important files. Select a module to continue.</p>
+    <p class="home-sub">Choose a zone to manage videos, assignments, notes, and important files from your private game hub.</p>
     <div class="home-status">
-      <span class="home-status-chip"><i></i> System online</span>
-      <span class="home-status-chip">Player 01 verified</span>
-      <span class="home-status-chip">Vault encryption active</span>
+      <span class="home-status-chip"><i></i> World online</span>
+      <span class="home-status-chip">Player verified</span>
+      <span class="home-status-chip">Vault protected</span>
     </div>
   </section>
 

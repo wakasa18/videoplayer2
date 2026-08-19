@@ -7,7 +7,7 @@
   <div class="site-topbar-inner">
     <a class="site-brand" href="<?= base_url('/') ?>">
       <span class="site-brand-mark">DA</span>
-      <span class="site-brand-copy"><span class="site-brand-title">Damon's Archive</span><span class="site-brand-sub">Arcade archive</span></span>
+      <span class="site-brand-copy"><span class="site-brand-title">Damon's Archive</span><span class="site-brand-sub">Adventure hub</span></span>
     </a>
     <div class="site-nav" aria-label="Archive sections">
       <a class="site-nav-link<?= $active(['']) ?>" href="<?= base_url('/') ?>">Home</a>
@@ -25,4 +25,4 @@
   </div>
 </nav>
 <?php endif; ?>
-<script src="<?= base_url('assets/js/retro-ui.v3.js') ?>" defer></script>
+<script src="<?= base_url('assets/js/game-ui.v1.js') ?>" defer></script>
