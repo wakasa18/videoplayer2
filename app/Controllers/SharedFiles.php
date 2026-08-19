@@ -359,7 +359,11 @@ class SharedFiles extends BaseController
     {
         try {
             $bucket = config(SupabaseConfig::class)->filesBucket;
-            $url = (new SupabaseStorage($bucket))->createSignedDownloadUrl($file['file_path'], 120);
+            $url = (new SupabaseStorage($bucket))->createSignedDownloadUrl(
+                $file['file_path'],
+                120,
+                (string) $file['original_filename']
+            );
         } catch (Throwable $e) {
             log_message('error', 'Shared file signed download failed: {message}', ['message' => $e->getMessage()]);
             return $this->response->setStatusCode(502)->setHeader('Cache-Control', 'no-store, max-age=0')->setBody(view('shares/unavailable', ['message' => 'The download could not be prepared. Please try again.']));

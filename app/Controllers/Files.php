@@ -707,7 +707,11 @@ class Files extends BaseController
         }
 
         try {
-            $url = (new SupabaseStorage($this->filesBucket()))->createSignedDownloadUrl($file['file_path'], 120);
+            $url = (new SupabaseStorage($this->filesBucket()))->createSignedDownloadUrl(
+                $file['file_path'],
+                120,
+                (string) $file['original_filename']
+            );
         } catch (Throwable $e) {
             return redirect()->to('/files')->with('error', 'Could not generate a download link.');
         }

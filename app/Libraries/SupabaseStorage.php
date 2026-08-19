@@ -87,8 +87,18 @@ class SupabaseStorage
         ];
     }
 
-    public function createSignedDownloadUrl(string $remotePath, int $expiresInSeconds = 120): string
-    {
+    /**
+     * Create a short-lived URL for a private object.
+     *
+     * Passing $downloadName adds Supabase's `download` query option so the
+     * browser receives Content-Disposition with the original filename instead
+     * of saving the randomized storage-object name.
+     */
+    public function createSignedDownloadUrl(
+        string $remotePath,
+        int $expiresInSeconds = 120,
+        ?string $downloadName = null
+    ): string {
         $url = sprintf(
             '%s/storage/v1/object/sign/%s/%s',
             $this->baseUrl,
@@ -112,7 +122,15 @@ class SupabaseStorage
             throw new RuntimeException('Supabase signed download URL response was missing the expected signedURL.');
         }
 
-        return $this->baseUrl . '/storage/v1' . $decoded['signedURL'];
+        $signedUrl = $this->baseUrl . '/storage/v1' . $decoded['signedURL'];
+        $filename  = $this->cleanDownloadName($downloadName);
+
+        if ($filename !== null) {
+            $separator = str_contains($signedUrl, '?') ? '&' : '?';
+            $signedUrl .= $separator . 'download=' . rawurlencode($filename);
+        }
+
+        return $signedUrl;
     }
 
     /**
@@ -366,6 +384,35 @@ class SupabaseStorage
             'contentRange' => (string) ($responseHeaders['content-range'] ?? ''),
             'acceptRanges' => (string) ($responseHeaders['accept-ranges'] ?? 'bytes'),
         ];
+    }
+
+    /**
+     * Keep the user's original filename while removing path and control data
+     * that must never be placed in an HTTP response header/query value.
+     */
+    private function cleanDownloadName(?string $downloadName): ?string
+    {
+        if ($downloadName === null) {
+            return null;
+        }
+
+        $filename = basename(str_replace('\\', '/', trim($downloadName)));
+        $filename = preg_replace('/[\x00-\x1F\x7F]/u', '', $filename) ?: '';
+        $filename = trim($filename, " .\t\n\r\0\x0B");
+
+        if ($filename === '') {
+            return null;
+        }
+
+        // Keep enough room for Unicode names while avoiding excessively long
+        // response headers. The database already limits names to 255 chars.
+        if (function_exists('mb_substr')) {
+            $filename = mb_substr($filename, 0, 255);
+        } else {
+            $filename = substr($filename, 0, 255);
+        }
+
+        return $filename;
     }
 
     protected function objectUrl(string $remotePath): string
