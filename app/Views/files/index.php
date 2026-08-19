@@ -162,6 +162,6 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
   ],
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script>window.VAULT_CONFIG=JSON.parse(document.getElementById('vaultConfig').textContent);</script>
-<script src="<?= base_url('assets/js/vault.v3.js') ?>" defer></script>
+<script src="<?= base_url('assets/js/vault.v4.js') ?>" defer></script>
 </body>
 </html>
