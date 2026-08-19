@@ -1,35 +1,33 @@
 <?php
 use App\Models\ImportantFileModel;
-
 $typeLabel = ImportantFileModel::typeLabel((string) $file['mime_type'], (string) $file['original_filename']);
 $previewUrl = $previewUrl ?? base_url('share/' . $token . '/preview');
 $downloadUrl = $downloadUrl ?? base_url('share/' . $token . '/download');
 $backUrl = $backUrl ?? null;
+$sharedTitle = trim((string) ($share['share_title'] ?? '')) ?: (string) $file['title'];
+$senderName = trim((string) ($share['display_name'] ?? '')) ?: "Damon's Archive";
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta name="referrer" content="no-referrer">
-<title><?= esc($file['title']) ?> · Shared File</title>
+<title><?= esc($sharedTitle) ?> · Shared File</title>
 <?= view('partials/theme_head') ?>
 <link rel="stylesheet" href="<?= base_url('assets/css/shared-file.v3.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/shared-pages.v2.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head>
 <body>
 <div class="twinkle-layer" id="twinkleLayer"></div>
 <main class="shared-wrap">
   <header class="share-header">
-    <div class="share-heading"><p class="eyebrow">Shared from Damon's Archive</p><h1><?= esc($file['title']) ?></h1><div class="share-filename"><?= esc($file['original_filename']) ?></div></div>
+    <div class="share-heading"><p class="eyebrow">Shared by <?= esc($senderName) ?></p><h1><?= esc($sharedTitle) ?></h1><?php if ($sharedTitle !== $file['title']): ?><div class="share-filename"><?= esc($file['title']) ?></div><?php endif; ?><div class="share-filename"><?= esc($file['original_filename']) ?></div><?php if (! empty($share['share_message'])): ?><p class="sp-message"><?= nl2br(esc((string) $share['share_message'])) ?></p><?php endif; ?></div>
     <div class="share-actions"><?php if ($backUrl): ?><a class="share-button secondary" href="<?= esc($backUrl, 'attr') ?>">Back to folder</a><?php endif; ?><a class="share-button secondary" href="<?= esc($previewKind !== 'unsupported' ? $previewUrl : $downloadUrl, 'attr') ?>" target="_blank" rel="noopener">Open tab</a><a class="share-button primary" href="<?= esc($downloadUrl, 'attr') ?>">Download</a></div>
   </header>
 
   <section class="share-grid">
-    <div class="share-stage" id="sharePreviewStage" data-kind="<?= esc($previewKind, 'attr') ?>" data-preview-url="<?= esc($previewUrl, 'attr') ?>" data-download-url="<?= esc($downloadUrl, 'attr') ?>" data-title="<?= esc($file['title'], 'attr') ?>">
-      <?php if ($previewKind === 'image'): ?><img src="<?= esc($previewUrl, 'attr') ?>" alt="<?= esc($file['title'], 'attr') ?>">
-      <?php elseif ($previewKind === 'video'): ?><video controls preload="metadata" src="<?= esc($previewUrl, 'attr') ?>"></video>
-      <?php elseif ($previewKind === 'audio'): ?><audio controls preload="metadata" src="<?= esc($previewUrl, 'attr') ?>"></audio>
-      <?php elseif ($previewKind === 'pdf' || $previewKind === 'text'): ?><div class="share-preview-loader" id="sharePreviewLoader"><span class="share-preview-spinner"></span><span>Loading secure preview…</span></div>
-      <?php else: ?><div class="share-fallback"><div class="share-file-icon"><?= esc($typeLabel) ?></div><h2>Preview unavailable</h2><p>This file is ready to download, but your browser cannot preview this format.</p><a class="share-button primary" href="<?= esc($downloadUrl, 'attr') ?>">Download file</a></div><?php endif; ?>
+    <div class="share-stage sp-preview-stage" id="sharePreviewStage" data-kind="<?= esc($previewKind, 'attr') ?>" data-preview-url="<?= esc($previewUrl, 'attr') ?>" data-download-url="<?= esc($downloadUrl, 'attr') ?>" data-title="<?= esc($file['title'], 'attr') ?>" data-name="<?= esc($file['original_filename'], 'attr') ?>" data-id="<?= (int) $file['id'] ?>">
+      <div class="sp-loader"><span class="sp-spinner"></span><span>Loading secure preview…</span></div>
     </div>
     <aside class="share-info">
       <h2>File details</h2>
@@ -43,8 +41,11 @@ $backUrl = $backUrl ?? null;
     </aside>
   </section>
 </main>
-
-<?php if ($previewKind === 'pdf' || $previewKind === 'text'): ?><script src="<?= base_url('assets/js/shared-file.v3.js') ?>" defer></script><?php endif; ?>
+<script id="sharedFileConfig" type="application/json"><?= json_encode([
+  'pdfModuleUrl' => base_url('share-assets/pdf.min.mjs'),
+  'pdfWorkerUrl' => base_url('share-assets/pdf.worker.min.mjs'),
+], JSON_UNESCAPED_SLASHES) ?></script>
+<script src="<?= base_url('assets/js/shared-file.v4.js') ?>" defer></script>
 <?= view('partials/theme_scripts') ?>
 </body>
 </html>

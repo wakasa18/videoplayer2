@@ -76,7 +76,7 @@ class Filters extends BaseFilters
         'before' => [
             // 'honeypot',
             // 'invalidchars',
-            'auth' => ['except' => ['login', 'share/*', 'cron/*']],
+            'auth' => ['except' => ['login', 'share/*', 'share-assets/*', 'cron/*']],
         ],
         'after' => [
             // 'honeypot',

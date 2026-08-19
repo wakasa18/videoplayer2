@@ -471,6 +471,140 @@ SQL;
             ->findAll();
     }
 
+    /**
+     * Paginated files for a public shared-folder page.
+     *
+     * @return array<int, array<string,mixed>>
+     */
+    public function getSharedFolderFiles(string $folderPath, array $filters, int $perPage = 30): array
+    {
+        $this->where('status', 'active')->where('folder_path', trim($folderPath, '/'));
+
+        $query = trim((string) ($filters['q'] ?? ''));
+        if ($query !== '') {
+            $this->groupStart()
+                ->like('title', $query)
+                ->orLike('description', $query)
+                ->orLike('original_filename', $query)
+                ->orLike('category', $query)
+                ->groupEnd();
+        }
+
+        $type = strtolower(trim((string) ($filters['type'] ?? '')));
+        if ($type === 'image') {
+            $this->like('mime_type', 'image/', 'after');
+        } elseif ($type === 'video') {
+            $this->like('mime_type', 'video/', 'after');
+        } elseif ($type === 'audio') {
+            $this->like('mime_type', 'audio/', 'after');
+        } elseif ($type === 'pdf') {
+            $this->groupStart()->where('mime_type', 'application/pdf')->orLike('original_filename', '.pdf', 'before')->groupEnd();
+        } elseif ($type === 'text') {
+            $this->groupStart()
+                ->like('mime_type', 'text/', 'after')
+                ->orWhere("LOWER(original_filename) ~ '\\.(txt|md|csv|json|xml|sql|log|ini|conf|php|js|ts|css|html|py|java|c|cpp|h|sh)$'", null, false)
+                ->groupEnd();
+        } elseif ($type === 'archive') {
+            $this->where("LOWER(original_filename) ~ '\\.(zip|rar|7z|tgz|tar|gz|bz2|xz)$'", null, false);
+        } elseif ($type === 'other') {
+            $this->where("NOT (mime_type LIKE 'image/%' OR mime_type LIKE 'video/%' OR mime_type LIKE 'audio/%' OR mime_type = 'application/pdf' OR mime_type LIKE 'text/%' OR LOWER(original_filename) ~ '\\.(txt|md|csv|json|xml|sql|log|ini|conf|php|js|ts|css|html|py|java|c|cpp|h|sh|zip|rar|7z|tgz|tar|gz|bz2|xz|pdf)$')", null, false);
+        }
+
+        $sort = (string) ($filters['sort'] ?? 'name_asc');
+        [$column, $direction] = match ($sort) {
+            'newest'  => ['created_at', 'DESC'],
+            'oldest'  => ['created_at', 'ASC'],
+            'largest' => ['file_size', 'DESC'],
+            'smallest'=> ['file_size', 'ASC'],
+            default   => ['title', 'ASC'],
+        };
+
+        return $this->orderBy($column, $direction)
+            ->orderBy('id', 'ASC')
+            ->paginate(max(10, min($perPage, 100)), 'shared_files');
+    }
+
+    /** @return array{files:int,bytes:int,last_updated:?string} */
+    public function getFolderTreeSummary(string $folderPath): array
+    {
+        $path = trim($folderPath, '/');
+        $row = $this->select('COUNT(*) AS file_count, COALESCE(SUM(file_size),0) AS total_bytes, MAX(updated_at) AS last_updated', false)
+            ->where('status', 'active')
+            ->groupStart()->where('folder_path', $path)->orLike('folder_path', $path . '/', 'after')->groupEnd()
+            ->first() ?: [];
+
+        return [
+            'files' => (int) ($row['file_count'] ?? 0),
+            'bytes' => (int) ($row['total_bytes'] ?? 0),
+            'last_updated' => $row['last_updated'] ?? null,
+        ];
+    }
+
+    /**
+     * Immediate child folders enriched with descendant totals.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function getChildFoldersDetailed(string $folderPath): array
+    {
+        $path = trim($folderPath, '/');
+        $prefix = $path . '/';
+        $rows = $this->select(
+            "folder_path, COUNT(*) AS file_count, COALESCE(SUM(file_size),0) AS total_bytes, MAX(updated_at) AS last_updated," .
+            " SUM(CASE WHEN mime_type LIKE 'image/%' THEN 1 ELSE 0 END) AS image_count," .
+            " SUM(CASE WHEN mime_type LIKE 'video/%' THEN 1 ELSE 0 END) AS video_count," .
+            " SUM(CASE WHEN mime_type LIKE 'audio/%' THEN 1 ELSE 0 END) AS audio_count," .
+            " SUM(CASE WHEN mime_type = 'application/pdf' THEN 1 ELSE 0 END) AS pdf_count",
+            false
+        )->where('status', 'active')
+            ->like('folder_path', $prefix, 'after')
+            ->groupBy('folder_path')
+            ->findAll();
+
+        $folders = [];
+        foreach ($rows as $row) {
+            $full = trim((string) ($row['folder_path'] ?? ''), '/');
+            $remaining = substr($full, strlen($prefix));
+            if ($remaining === false || $remaining === '') {
+                continue;
+            }
+            $name = explode('/', $remaining, 2)[0];
+            $childPath = $prefix . $name;
+            if (! isset($folders[$childPath])) {
+                $folders[$childPath] = [
+                    'name' => $name, 'path' => $childPath, 'count' => 0, 'bytes' => 0,
+                    'last_updated' => null, 'image_count' => 0, 'video_count' => 0,
+                    'audio_count' => 0, 'pdf_count' => 0,
+                ];
+            }
+            $folders[$childPath]['count'] += (int) ($row['file_count'] ?? 0);
+            $folders[$childPath]['bytes'] += (int) ($row['total_bytes'] ?? 0);
+            foreach (['image_count','video_count','audio_count','pdf_count'] as $key) {
+                $folders[$childPath][$key] += (int) ($row[$key] ?? 0);
+            }
+            $updated = (string) ($row['last_updated'] ?? '');
+            if ($updated !== '' && ($folders[$childPath]['last_updated'] === null || $updated > $folders[$childPath]['last_updated'])) {
+                $folders[$childPath]['last_updated'] = $updated;
+            }
+        }
+        uasort($folders, static fn (array $a, array $b): int => strnatcasecmp($a['name'], $b['name']));
+        return array_values($folders);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function getFilesByIdsInTree(array $ids, string $rootPath): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $root = trim($rootPath, '/');
+        return $this->where('status', 'active')
+            ->whereIn('id', $ids)
+            ->groupStart()->where('folder_path', $root)->orLike('folder_path', $root . '/', 'after')->groupEnd()
+            ->orderBy('folder_path', 'ASC')->orderBy('original_filename', 'ASC')->findAll(count($ids));
+    }
+
     public static function formatBytes(int $bytes, int $precision = 1): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];

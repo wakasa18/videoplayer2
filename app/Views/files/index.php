@@ -21,7 +21,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
 <head>
 <title>Important Files · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/vault.v4.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/vault.v5.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head>
 <body>
@@ -128,7 +128,44 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
 <div class="modal drive-preview" id="previewModal" aria-hidden="true"><div class="drive-preview-card"><div class="preview-topbar"><div class="preview-nav"><button type="button" id="previewPrev" aria-label="Previous file">&#8592;</button><button type="button" id="previewNext" aria-label="Next file">&#8594;</button></div><div class="preview-heading"><strong id="previewTitle">File</strong><span id="previewFilename"></span></div><a class="preview-top-action open-new" id="previewOpenLink" href="#" target="_blank" rel="noopener">Open tab</a><a class="preview-top-action" id="previewDownloadTop" href="#" target="_blank" rel="noopener">Download</a><button class="preview-top-action" type="button" data-close-modal aria-label="Close">&#10005;</button></div><div class="preview-body"><div class="preview-stage" id="previewStage"><div class="preview-loader" id="previewLoading"><span class="preview-spinner"></span><span>Loading secure preview…</span></div></div><aside class="preview-info"><h3>File details</h3><div class="detail-row"><span class="detail-label">Name</span><div class="detail-value" id="detailName"></div></div><div class="detail-row"><span class="detail-label">Location</span><div class="detail-value" id="detailFolder"></div></div><div class="detail-row"><span class="detail-label">Type</span><div class="detail-value" id="detailType"></div></div><div class="detail-row"><span class="detail-label">Size</span><div class="detail-value" id="detailSize"></div></div><div class="detail-row"><span class="detail-label">Added</span><div class="detail-value" id="detailDate"></div></div><div class="detail-row"><span class="detail-label">Description</span><div class="detail-value" id="detailDescription"></div></div><div class="preview-info-actions"><a class="primary-link" id="previewDownloadSide" href="#" target="_blank" rel="noopener">Download</a><a class="secondary-link" id="previewOpenSide" href="#" target="_blank" rel="noopener">Open tab</a></div></aside></div></div></div>
 <div class="modal" id="editModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Edit file details</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><form id="editForm" method="post"><?= csrf_field() ?><input type="hidden" name="return_to" id="editReturnTo"><label for="editTitle">Title</label><input id="editTitle" name="title" type="text" maxlength="255" required><label for="editDescription">Description</label><textarea id="editDescription" name="description" rows="3" maxlength="5000"></textarea><label for="editCategory">Category</label><input id="editCategory" name="category" type="text" maxlength="100"><label for="editFolderPath">Folder</label><input id="editFolderPath" name="folder_path" type="text" maxlength="1000" placeholder="Folder/Subfolder"><label for="editDocumentDate">Document date (optional)</label><input id="editDocumentDate" name="document_date" type="date"><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary">Save changes</button></div></form></div></div>
 <div class="modal" id="deleteModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Move to Recycle Bin?</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><p id="deleteMessage" class="file-hint"></p><form id="deleteForm" method="post"><?= csrf_field() ?><input type="hidden" name="return_to" id="deleteReturnTo"><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="danger-button">Move file</button></div></form></div></div>
-<div class="modal" id="shareModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2 id="shareModalTitle">Share file</h2><button class="modal-close" type="button" data-close-modal>&times;</button></div><p class="share-help" id="shareHelp">Create a private link that works without signing in. Anyone who receives the link can open or download the selected item until the link expires or you disable it.</p><form id="shareForm"><div class="share-options"><div><label for="shareDuration">Link expiration</label><select id="shareDuration"><option value="1d">1 day</option><option value="7d" selected>7 days</option><option value="30d">30 days</option><option value="90d">90 days</option><option value="never">Never</option></select></div><div><label for="shareMaxDownloads">Download limit</label><input id="shareMaxDownloads" type="number" min="0" max="10000" value="0"><p class="file-hint" style="margin:5px 0 0">Use 0 for unlimited.</p></div></div><div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary" id="shareCreateBtn">Create link</button></div></form><div class="share-result" id="shareResult" hidden><div class="share-result-label">New share link</div><div class="share-link-row"><input id="shareLinkInput" type="text" readonly><button type="button" class="share-copy" id="shareCopyBtn">Copy</button></div><p class="share-once" id="shareResultNote">You can copy this link again later from Link History.</p></div><div class="share-list-title">Link history</div><div class="share-list" id="shareList"><div class="share-loading">Loading links…</div></div></div></div>
+<div class="modal" id="shareModal" aria-hidden="true">
+  <div class="modal-card share-manager-card">
+    <div class="modal-head"><h2 id="shareModalTitle">Share file</h2><button class="modal-close" type="button" data-close-modal aria-label="Close sharing window">&times;</button></div>
+    <p class="share-help" id="shareHelp">Create a private link that works without signing in.</p>
+    <form id="shareForm">
+      <div class="share-custom-grid">
+        <div class="share-span-2"><label for="sharePageTitle">Shared-page title (optional)</label><input id="sharePageTitle" type="text" maxlength="255" placeholder="Example: Project delivery files"></div>
+        <div><label for="shareDisplayName">Shared by (optional)</label><input id="shareDisplayName" type="text" maxlength="100" placeholder="Your name or team"></div>
+        <div><label for="shareDuration">Link expiration</label><select id="shareDuration"><option value="1d">1 day</option><option value="7d" selected>7 days</option><option value="30d">30 days</option><option value="90d">90 days</option><option value="never">Never</option></select></div>
+        <div class="share-span-2"><label for="shareMessage">Message or instructions (optional)</label><textarea id="shareMessage" rows="3" maxlength="3000" placeholder="Add notes for the recipient…"></textarea></div>
+        <div><label for="shareMaxDownloads">Download limit</label><input id="shareMaxDownloads" type="number" min="0" max="10000" value="0"><p class="file-hint share-field-hint">Use 0 for unlimited.</p></div>
+        <fieldset class="share-notifications"><legend>Owner notifications</legend><label><input id="shareNotifyFirstOpen" type="checkbox"> First time opened</label><label><input id="shareNotifyLimit" type="checkbox"> Download limit reached</label><label><input id="shareNotifyExpiring" type="checkbox"> Link expiring soon</label></fieldset>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn-secondary" data-close-modal>Cancel</button><button type="submit" class="btn-primary" id="shareCreateBtn">Create link</button></div>
+    </form>
+    <div class="share-result" id="shareResult" hidden>
+      <div class="share-result-label">Share link ready</div>
+      <div class="share-link-row"><input id="shareLinkInput" type="text" readonly><button type="button" class="share-copy" id="shareCopyBtn">Copy</button><button type="button" class="share-qr-button" id="shareQrBtn">QR</button></div>
+      <p class="share-once" id="shareResultNote">You can copy this link again later from Link History.</p>
+    </div>
+    <div class="share-list-title"><span>Link history</span><span class="share-list-caption">Copy, view QR, check activity, or disable a link.</span></div>
+    <div class="share-list" id="shareList"><div class="share-loading">Loading links…</div></div>
+  </div>
+</div>
+<div class="modal" id="qrModal" aria-hidden="true">
+  <div class="modal-card qr-modal-card">
+    <div class="modal-head"><h2>Share QR code</h2><button class="modal-close" type="button" data-close-modal aria-label="Close QR code">&times;</button></div>
+    <div class="qr-code-shell" id="qrCodeCanvas" aria-label="QR code"></div>
+    <p class="share-help">Scan this code to open the same share link.</p>
+    <div class="share-link-row"><input id="qrLinkInput" type="text" readonly><button type="button" class="share-copy" id="qrCopyBtn">Copy link</button></div>
+  </div>
+</div>
+<div class="modal" id="analyticsModal" aria-hidden="true">
+  <div class="modal-card analytics-modal-card">
+    <div class="modal-head"><h2>Share activity</h2><button class="modal-close" type="button" data-close-modal aria-label="Close activity">&times;</button></div>
+    <div id="shareAnalyticsBody" class="share-analytics-body"><div class="share-loading">Loading activity…</div></div>
+  </div>
+</div>
 <div class="modal" id="folderDownloadModal" aria-hidden="true" data-static="true">
   <div class="modal-card folder-download-card">
     <div class="folder-download-symbol">ZIP</div>
@@ -150,6 +187,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
   'csrfHash' => csrf_hash(),
   'maxBytes' => (int) $maxBytes,
   'currentPath' => (string) ($currentPath ?? ''),
+  'siteUsername' => (string) session()->get('site_username'),
   'urls' => [
     'filesBase' => base_url('files'),
     'folderShares' => base_url('files/folder-shares'),
@@ -162,6 +200,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
   ],
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script>window.VAULT_CONFIG=JSON.parse(document.getElementById('vaultConfig').textContent);</script>
-<script src="<?= base_url('assets/js/vault.v4.js') ?>" defer></script>
+<script src="<?= base_url('share-assets/qrcode.min.js') ?>" defer></script>
+<script src="<?= base_url('assets/js/vault.v5.js') ?>" defer></script>
 </body>
 </html>

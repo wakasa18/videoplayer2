@@ -18,6 +18,15 @@ class ImportantFileShareModel extends Model
         'folder_path',
         'token_hash',
         'token_ciphertext',
+        'share_title',
+        'share_message',
+        'display_name',
+        'notify_first_open',
+        'notify_download_limit',
+        'notify_expiring',
+        'first_open_notified_at',
+        'limit_notified_at',
+        'expiring_notified_at',
         'expires_at',
         'max_downloads',
         'view_count',
@@ -40,6 +49,8 @@ class ImportantFileShareModel extends Model
         'folder_path'   => 'permit_empty|max_length[1000]',
         'token_hash'       => 'required|exact_length[64]|alpha_numeric',
         'token_ciphertext' => 'permit_empty|max_length[500]',
+        'share_title'      => 'permit_empty|max_length[255]',
+        'display_name'     => 'permit_empty|max_length[100]',
         'max_downloads' => 'permit_empty|integer|greater_than[0]|less_than_equal_to[10000]',
     ];
 
@@ -142,6 +153,36 @@ class ImportantFileShareModel extends Model
             ->set('revoked_at', date('Y-m-d H:i:s'))
             ->set('updated_at', date('Y-m-d H:i:s'))
             ->update();
+    }
+
+
+    public function markNotificationSent(int $shareId, string $column): bool
+    {
+        $allowed = ['first_open_notified_at', 'limit_notified_at', 'expiring_notified_at'];
+        if (! in_array($column, $allowed, true)) {
+            return false;
+        }
+        $this->builder()
+            ->where('id', $shareId)
+            ->where($column . ' IS NULL', null, false)
+            ->set($column, date('Y-m-d H:i:s'))
+            ->set('updated_at', date('Y-m-d H:i:s'))
+            ->update();
+
+        return $this->db->affectedRows() === 1;
+    }
+
+    public function expiringForNotification(int $hours = 24): array
+    {
+        $now = date('Y-m-d H:i:s');
+        $until = date('Y-m-d H:i:s', time() + max(1, min($hours, 168)) * 3600);
+        return $this->where('notify_expiring', true)
+            ->where('expiring_notified_at IS NULL', null, false)
+            ->where('revoked_at IS NULL', null, false)
+            ->where('expires_at IS NOT NULL', null, false)
+            ->where('expires_at >', $now)
+            ->where('expires_at <=', $until)
+            ->findAll(200);
     }
 
     public static function status(array $share): array

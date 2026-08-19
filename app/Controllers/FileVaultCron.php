@@ -5,6 +5,9 @@ namespace App\Controllers;
 use App\Libraries\SupabaseStorage;
 use App\Models\FileAuditModel;
 use App\Models\ImportantFileModel;
+use App\Models\ImportantFileShareModel;
+use App\Models\ImportantFileShareEventModel;
+use App\Models\ImportantFileShareDownloadSessionModel;
 use Config\Supabase as SupabaseConfig;
 use Throwable;
 
@@ -22,6 +25,8 @@ class FileVaultCron extends BaseController
         $result  = [
             'pending_removed' => 0,
             'recycle_purged'  => 0,
+            'download_sessions_expired' => 0,
+            'share_expiry_notifications' => 0,
         ];
 
         foreach ($model->stalePendingFiles(3600) as $file) {
@@ -56,7 +61,46 @@ class FileVaultCron extends BaseController
             $result['recycle_purged']++;
         }
 
+        $result['download_sessions_expired'] = (new ImportantFileShareDownloadSessionModel())->expireOld();
+
+        $shareModel = new ImportantFileShareModel();
+        $eventModel = new ImportantFileShareEventModel();
+        foreach ($shareModel->expiringForNotification(24) as $share) {
+            if (! $shareModel->markNotificationSent((int) $share['id'], 'expiring_notified_at')) {
+                continue;
+            }
+            try {
+                $eventModel->recordEvent((int) $share['id'], 'notification_expiring', null, [
+                    'message' => 'This share link expires within 24 hours.',
+                    'expires_at' => $share['expires_at'],
+                ], true, hash('sha256', 'cron'));
+            } catch (Throwable) {
+            }
+            $this->sendShareEmail(
+                'Share link expiring soon',
+                'A shared ' . (($share['share_type'] ?? 'file') === 'folder' ? 'folder' : 'file') . ' link expires at ' . (string) $share['expires_at'] . '.'
+            );
+            $result['share_expiry_notifications']++;
+        }
+
         return $this->response->setJSON($result);
+    }
+
+    private function sendShareEmail(string $subject, string $message): void
+    {
+        $to = trim((string) getenv('EMAIL_TO'));
+        if ($to === '') {
+            return;
+        }
+        try {
+            $email = service('email');
+            $from = trim((string) getenv('EMAIL_FROM'));
+            if ($from !== '') {
+                $email->setFrom($from, 'Damon\'s Archive');
+            }
+            $email->setTo($to)->setSubject($subject)->setMessage($message)->send(false);
+        } catch (Throwable) {
+        }
     }
 
     private function cronSecretIsValid(): bool

@@ -10,6 +10,7 @@ $routes->post('login', 'Auth::login');
 $routes->post('logout', 'Auth::logout');
 
 // Public file-sharing links. These routes intentionally bypass website login.
+$routes->get('share-assets/(:segment)', 'SharedAssets::file/$1');
 $routes->get('share/(:segment)', 'SharedFiles::show/$1');
 $routes->get('share/(:segment)/preview', 'SharedFiles::preview/$1');
 $routes->get('share/(:segment)/download', 'SharedFiles::download/$1');
@@ -17,6 +18,9 @@ $routes->get('share/(:segment)/file/(:num)', 'SharedFiles::folderFile/$1/$2');
 $routes->get('share/(:segment)/file/(:num)/preview', 'SharedFiles::folderFilePreview/$1/$2');
 $routes->get('share/(:segment)/file/(:num)/download', 'SharedFiles::folderFileDownload/$1/$2');
 $routes->get('share/(:segment)/folder-manifest', 'SharedFiles::folderManifest/$1');
+$routes->post('share/(:segment)/selection-manifest', 'SharedFiles::selectionManifest/$1');
+$routes->post('share/(:segment)/archive/(:segment)/confirm', 'SharedFiles::confirmArchive/$1/$2');
+$routes->post('share/(:segment)/archive/(:segment)/cancel', 'SharedFiles::cancelArchive/$1/$2');
 
 $routes->get('/', 'Home::index');
 
@@ -50,6 +54,7 @@ $routes->post('files/folder-shares', 'Files::createFolderShare');
 $routes->get('files/shares/(:num)/link', 'Files::shareLink/$1');
 $routes->post('files/shares/(:num)/rotate', 'Files::rotateShareToken/$1');
 $routes->post('files/shares/(:num)/revoke', 'Files::revokeShare/$1');
+$routes->get('files/shares/(:num)/analytics', 'Files::shareAnalytics/$1');
 $routes->post('files/(:num)/update', 'Files::update/$1');
 $routes->post('files/(:num)/favorite', 'Files::toggleFavorite/$1');
 $routes->post('files/(:num)/delete', 'Files::destroy/$1');

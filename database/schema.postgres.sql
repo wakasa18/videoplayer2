@@ -108,8 +108,18 @@ CREATE TABLE IF NOT EXISTS important_file_shares (
   file_id         INTEGER NULL REFERENCES important_files(id) ON DELETE CASCADE,
   folder_path     VARCHAR(1000) NULL,
   token_hash      CHAR(64) NOT NULL,
+  token_ciphertext TEXT NULL,
   expires_at      TIMESTAMP NULL,
   max_downloads   INTEGER NULL CHECK (max_downloads IS NULL OR max_downloads BETWEEN 1 AND 10000),
+  share_title     VARCHAR(255) NULL,
+  share_message   TEXT NULL,
+  display_name    VARCHAR(100) NULL,
+  notify_first_open BOOLEAN NOT NULL DEFAULT FALSE,
+  notify_download_limit BOOLEAN NOT NULL DEFAULT FALSE,
+  notify_expiring BOOLEAN NOT NULL DEFAULT FALSE,
+  first_open_notified_at TIMESTAMP NULL,
+  limit_notified_at TIMESTAMP NULL,
+  expiring_notified_at TIMESTAMP NULL,
   view_count      INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
   download_count  INTEGER NOT NULL DEFAULT 0 CHECK (download_count >= 0),
   last_accessed_at TIMESTAMP NULL,
@@ -131,3 +141,41 @@ CREATE INDEX IF NOT EXISTS idx_important_file_shares_folder_active ON important_
 ALTER TABLE important_file_shares ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE important_file_shares FROM anon, authenticated;
 REVOKE ALL ON SEQUENCE important_file_shares_id_seq FROM anon, authenticated;
+
+
+-- Public-share activity and pending archive sessions.
+CREATE TABLE IF NOT EXISTS important_file_share_events (
+  id BIGSERIAL PRIMARY KEY,
+  share_id BIGINT NOT NULL REFERENCES important_file_shares(id) ON DELETE CASCADE,
+  file_id INTEGER NULL REFERENCES important_files(id) ON DELETE SET NULL,
+  event_type VARCHAR(60) NOT NULL,
+  session_hash CHAR(64) NULL,
+  details JSONB NULL,
+  is_notification BOOLEAN NOT NULL DEFAULT FALSE,
+  read_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_share_events_share_created ON important_file_share_events (share_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_share_events_type ON important_file_share_events (event_type);
+CREATE INDEX IF NOT EXISTS idx_share_events_notification ON important_file_share_events (share_id, is_notification, read_at);
+ALTER TABLE important_file_share_events ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE important_file_share_events FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE important_file_share_events_id_seq FROM anon, authenticated;
+
+CREATE TABLE IF NOT EXISTS important_file_share_download_sessions (
+  id BIGSERIAL PRIMARY KEY,
+  session_token_hash CHAR(64) NOT NULL UNIQUE,
+  share_id BIGINT NOT NULL REFERENCES important_file_shares(id) ON DELETE CASCADE,
+  folder_path VARCHAR(1000) NULL,
+  file_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  file_count INTEGER NOT NULL DEFAULT 0 CHECK (file_count >= 0),
+  total_bytes BIGINT NOT NULL DEFAULT 0 CHECK (total_bytes >= 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed','cancelled','expired')),
+  expires_at TIMESTAMP NOT NULL,
+  completed_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_share_download_sessions_share ON important_file_share_download_sessions (share_id, status, expires_at);
+ALTER TABLE important_file_share_download_sessions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE important_file_share_download_sessions FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE important_file_share_download_sessions_id_seq FROM anon, authenticated;
