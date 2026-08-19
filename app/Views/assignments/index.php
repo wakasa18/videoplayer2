@@ -13,7 +13,7 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
 <title>Assignments · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
 <meta name="csrf-name" content="<?= esc(csrf_token(),'attr') ?>"><meta name="csrf-hash" content="<?= esc(csrf_hash(),'attr') ?>">
-<link rel="stylesheet" href="<?= base_url('assets/css/assignments.v2.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/assignments.v3.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head><body data-base-url="<?= esc(rtrim(base_url(),'/'),'attr') ?>">
 <div class="twinkle-layer" id="twinkleLayer"></div>

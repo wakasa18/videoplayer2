@@ -3,13 +3,7 @@
 <head>
 <title>Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<style>
-  .home-header{ margin-bottom:8px; }
-  .home-sub{
-    font-size:14px; color:var(--text-dim); max-width:520px; line-height:1.6;
-    margin:0 0 8px; opacity:0; animation:fadeInUp .6s ease .26s forwards;
-  }
-</style>
+<style>.home-header{margin-bottom:8px}.home-sub{max-width:600px;margin:0 0 8px;font-size:15px;line-height:1.6}</style>
 <?= view('partials/retro_theme') ?>
 </head>
 <body>

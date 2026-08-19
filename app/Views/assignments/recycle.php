@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en"><head>
 <title><?= $mode==='archive'?'Assignment Archive':'Assignment Recycle Bin' ?> · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/assignments.v2.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/assignments.v3.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head><body><div class="twinkle-layer" id="twinkleLayer"></div><div class="wrap recycle-shell">
 <a href="<?= base_url('assignments') ?>" class="nav-back">← Assignments</a>

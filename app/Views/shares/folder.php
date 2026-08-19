@@ -40,7 +40,7 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
 <meta name="referrer" content="no-referrer">
 <title><?= esc($sharedTitle) ?> · Shared Folder</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/shared-pages.v4.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/shared-pages.v5.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head>
 <body class="sp-public-body">

@@ -4,7 +4,7 @@
 <title>Important Files · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
 <style>
-  .gate-panel{max-width:420px;margin:60px auto 0;text-align:center;padding:40px 32px}.gate-icon{width:56px;height:56px;margin:0 auto 18px;border-radius:50%;background:var(--surface-2);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:22px}.gate-panel h2{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:25px;margin:0 0 8px}.gate-panel p{font-size:13px;color:var(--text-dim);margin:0 0 22px;line-height:1.6}.password-wrap{position:relative}.password-wrap input{padding-right:72px}.show-password{position:absolute;right:6px;top:5px;padding:7px 9px;background:transparent;color:var(--text-dim);font-size:11px}.show-password:hover{color:var(--cyan)}
+.gate-panel{max-width:440px;margin:48px auto 0;text-align:center;padding:34px 30px}.gate-icon{width:62px;height:62px;margin:0 auto 18px;border-radius:14px;display:grid;place-items:center;font-size:24px}.gate-panel h2{font-size:29px;margin:0 0 8px}.gate-panel p{font-size:14px;margin:0 0 22px;line-height:1.6}.password-wrap{position:relative}.password-wrap input{padding-right:76px}.show-password{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:32px;padding:5px 10px;background:transparent!important;border:0!important;box-shadow:none!important}.gate-panel .btn-primary{width:100%;margin-top:16px}
 </style>
 <?= view('partials/retro_theme') ?>
 </head>
