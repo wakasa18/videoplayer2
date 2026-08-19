@@ -134,21 +134,25 @@ class ImportantFileModel extends Model
      */
     public function getChildFolders(?string $folderPath): array
     {
-        $rows = $this->select('folder_path')
+        $prefix = $folderPath ? trim($folderPath, '/') . '/' : '';
+
+        // Group identical paths in the database instead of returning one row
+        // for every file. This keeps folder browsing fast as the vault grows.
+        $query = $this->select('folder_path, COUNT(*) AS file_count', false)
             ->where('status', 'active')
             ->where('folder_path IS NOT NULL', null, false)
-            ->where('folder_path <>', '')
-            ->findAll();
+            ->where('folder_path <>', '');
 
-        $prefix = $folderPath ? trim($folderPath, '/') . '/' : '';
+        if ($prefix !== '') {
+            $query->like('folder_path', $prefix, 'after');
+        }
+
+        $rows = $query->groupBy('folder_path')->findAll();
         $folders = [];
 
         foreach ($rows as $row) {
             $path = trim((string) ($row['folder_path'] ?? ''), '/');
             if ($path === '') {
-                continue;
-            }
-            if ($prefix !== '' && ! str_starts_with($path . '/', $prefix)) {
                 continue;
             }
 
@@ -166,7 +170,7 @@ class ImportantFileModel extends Model
             if (! isset($folders[$childPath])) {
                 $folders[$childPath] = ['name' => $name, 'path' => $childPath, 'count' => 0];
             }
-            $folders[$childPath]['count']++;
+            $folders[$childPath]['count'] += max(1, (int) ($row['file_count'] ?? 1));
         }
 
         uasort($folders, static fn (array $a, array $b): int => strnatcasecmp($a['name'], $b['name']));
@@ -307,6 +311,66 @@ class ImportantFileModel extends Model
         return $this->where('status', 'deleted')
             ->orderBy('deleted_at', 'DESC')
             ->paginate($perPage, 'recycle');
+    }
+
+    /**
+     * Return filter options and storage totals in one database round trip.
+     * PostgreSQL is used in production through Supabase; other drivers fall
+     * back to the portable queries below.
+     *
+     * @return array{categories: array<int,string>, extensions: array<int,string>, summary: array{file_count:int,total_bytes:int}}
+     */
+    public function getVaultMetadata(): array
+    {
+        if (strtolower((string) $this->db->DBDriver) === 'postgre') {
+            $sql = <<<'SQL'
+SELECT
+  (SELECT COUNT(*) FROM important_files WHERE status = 'active') AS file_count,
+  (SELECT COALESCE(SUM(file_size), 0) FROM important_files WHERE status = 'active') AS total_bytes,
+  COALESCE((
+    SELECT json_agg(category ORDER BY category)
+    FROM (
+      SELECT DISTINCT category
+      FROM important_files
+      WHERE status = 'active' AND category IS NOT NULL AND category <> ''
+    ) categories
+  ), '[]'::json) AS categories,
+  COALESCE((
+    SELECT json_agg(file_extension ORDER BY file_extension)
+    FROM (
+      SELECT DISTINCT file_extension
+      FROM important_files
+      WHERE status = 'active' AND file_extension IS NOT NULL AND file_extension <> ''
+    ) extensions
+  ), '[]'::json) AS extensions
+SQL;
+            try {
+                $row = $this->db->query($sql)->getRowArray() ?: [];
+                $categories = is_array($row['categories'] ?? null)
+                    ? $row['categories']
+                    : json_decode((string) ($row['categories'] ?? '[]'), true);
+                $extensions = is_array($row['extensions'] ?? null)
+                    ? $row['extensions']
+                    : json_decode((string) ($row['extensions'] ?? '[]'), true);
+
+                return [
+                    'categories' => array_values(array_filter((array) $categories, 'is_string')),
+                    'extensions' => array_values(array_filter((array) $extensions, 'is_string')),
+                    'summary'    => [
+                        'file_count'  => (int) ($row['file_count'] ?? 0),
+                        'total_bytes' => (int) ($row['total_bytes'] ?? 0),
+                    ],
+                ];
+            } catch (\Throwable $e) {
+                log_message('warning', 'Vault metadata aggregate query failed: {message}', ['message' => $e->getMessage()]);
+            }
+        }
+
+        return [
+            'categories' => $this->getCategories(),
+            'extensions' => (new self())->getExtensions(),
+            'summary'    => (new self())->getVaultSummary(),
+        ];
     }
 
     public function getCategories(): array

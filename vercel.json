@@ -15,6 +15,13 @@
       "dest": "/public/robots.txt"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/public/assets/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "/api/index.php"
     }

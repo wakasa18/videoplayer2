@@ -219,7 +219,7 @@ class SharedFiles extends BaseController
         $folderName = basename(str_replace('\\', '/', $absolute)) ?: 'shared-folder';
 
         return $this->response
-            ->setHeader('Cache-Control', 'no-store, private, max-age=0')
+            ->setHeader('Cache-Control', 'no-store, private, no-transform, max-age=0')
             ->setHeader('Pragma', 'no-cache')
             ->setHeader('X-Robots-Tag', 'noindex, nofollow')
             ->setJSON([
@@ -307,12 +307,13 @@ class SharedFiles extends BaseController
             return $this->plainUnavailable('Preview is not available for this file type.');
         }
 
-        $range = trim($this->request->getHeaderLine('Range'));
+        $forceFull = $this->request->getGet('full') === '1';
+        $range = $forceFull ? '' : trim($this->request->getHeaderLine('Range'));
         if ($range !== '' && ! preg_match('/^bytes=\d*-\d*$/', $range)) {
             $range = '';
         }
-        if ($kind === 'text' && $range === '' && (int) $file['file_size'] > 2 * 1024 * 1024) {
-            $range = 'bytes=0-2097151';
+        if ($kind === 'text' && $range === '' && (int) $file['file_size'] > 768 * 1024) {
+            $range = 'bytes=0-786431';
         }
 
         try {
@@ -332,10 +333,11 @@ class SharedFiles extends BaseController
         $response = $this->response
             ->setStatusCode((int) $object['status'])
             ->setHeader('Content-Type', $mimeType)
+            ->setHeader('X-Preview-Kind', $kind)
             ->setHeader('Content-Disposition', $disposition)
             ->setHeader('Content-Length', (string) strlen($object['body']))
             ->setHeader('Accept-Ranges', $object['acceptRanges'] ?: 'bytes')
-            ->setHeader('Cache-Control', 'no-store, private, max-age=0')
+            ->setHeader('Cache-Control', 'no-store, private, no-transform, max-age=0')
             ->setHeader('Pragma', 'no-cache')
             ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setHeader('X-Frame-Options', 'SAMEORIGIN')
@@ -346,7 +348,7 @@ class SharedFiles extends BaseController
         if ($object['contentRange'] !== '') {
             $response->setHeader('Content-Range', $object['contentRange']);
         }
-        if ($kind === 'text' && (int) $file['file_size'] > 2 * 1024 * 1024) {
+        if ($kind === 'text' && (int) $file['file_size'] > 768 * 1024) {
             $response->setHeader('X-Preview-Truncated', 'true');
         }
 

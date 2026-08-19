@@ -57,6 +57,29 @@ class Files extends BaseController
         return max(1, min($files, 10000));
     }
 
+
+    /** @return array{categories: array, extensions: array, summary: array} */
+    private function vaultMetadata(): array
+    {
+        $cached = session()->get('files_vault_metadata');
+        if (is_array($cached)
+            && (int) ($cached['expires'] ?? 0) > time()
+            && isset($cached['categories'], $cached['extensions'], $cached['summary'])) {
+            return $cached;
+        }
+
+        $metadata = (new ImportantFileModel())->getVaultMetadata();
+        $metadata['expires'] = time() + 120;
+        session()->set('files_vault_metadata', $metadata);
+
+        return $metadata;
+    }
+
+    private function invalidateVaultMetadata(): void
+    {
+        session()->remove('files_vault_metadata');
+    }
+
     private function requireUnlockedJson(): ?ResponseInterface
     {
         if ($this->isUnlocked()) {
@@ -213,6 +236,8 @@ class Files extends BaseController
         $queryModel = new ImportantFileModel();
         $files      = $queryModel->getFolderFiles($currentPath, $filters, 20);
         $page       = $queryModel->pager->getDetails('files');
+        $metadata   = $this->vaultMetadata();
+        $maxBytes   = $this->maxUploadBytes();
 
         $hasFileFilters = $filters['q'] !== ''
             || $filters['category'] !== ''
@@ -231,11 +256,11 @@ class Files extends BaseController
             'childFolders'   => ($filters['favorite'] === '1' || $hasFileFilters)
                 ? []
                 : (new ImportantFileModel())->getChildFolders($currentPath),
-            'categories'     => (new ImportantFileModel())->getCategories(),
-            'extensions'     => (new ImportantFileModel())->getExtensions(),
-            'summary'        => (new ImportantFileModel())->getVaultSummary(),
-            'maxBytes'       => $this->maxUploadBytes(),
-            'maxMb'          => (int) ($this->maxUploadBytes() / 1024 / 1024),
+            'categories'     => $metadata['categories'],
+            'extensions'     => $metadata['extensions'],
+            'summary'        => $metadata['summary'],
+            'maxBytes'       => $maxBytes,
+            'maxMb'          => (int) ($maxBytes / 1024 / 1024),
         ]);
     }
 
@@ -377,6 +402,7 @@ class Files extends BaseController
             if (! $updated) {
                 throw new \RuntimeException('The database could not finalize the upload.');
             }
+            $this->invalidateVaultMetadata();
         } catch (Throwable $e) {
             try {
                 (new SupabaseStorage($this->filesBucket()))->delete($file['file_path']);
@@ -550,7 +576,7 @@ class Files extends BaseController
         ]);
 
         return $this->response
-            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('Cache-Control', 'private, no-store, no-transform, max-age=0')
             ->setHeader('Pragma', 'no-cache')
             ->setJSON([
                 'archiveName'  => $this->folderArchiveName($rootPath),
@@ -610,7 +636,8 @@ class Files extends BaseController
                 ->setBody('Preview is not available for that file.');
         }
 
-        $range = trim($this->request->getHeaderLine('Range'));
+        $forceFull = $this->request->getGet('full') === '1';
+        $range = $forceFull ? '' : trim($this->request->getHeaderLine('Range'));
         if ($range !== '' && ! preg_match('/^bytes=\d*-\d*$/', $range)) {
             $range = '';
         }
@@ -618,8 +645,8 @@ class Files extends BaseController
         // Text and source files are shown as plain text. Limit very large text
         // previews so opening a log or database export does not exhaust a
         // serverless function's memory.
-        if ($kind === 'text' && $range === '' && (int) $file['file_size'] > 2 * 1024 * 1024) {
-            $range = 'bytes=0-2097151';
+        if ($kind === 'text' && $range === '' && (int) $file['file_size'] > 768 * 1024) {
+            $range = 'bytes=0-786431';
         }
 
         try {
@@ -634,7 +661,7 @@ class Files extends BaseController
                 ->setBody('The preview could not be loaded. Please close this window and try again.');
         }
 
-        if ($range === '' || $range === 'bytes=0-2097151') {
+        if ($range === '' || $range === 'bytes=0-786431' || $range === 'bytes=0-7') {
             $this->audit('file_previewed', $id);
         }
 
@@ -647,10 +674,11 @@ class Files extends BaseController
         $response = $this->response
             ->setStatusCode((int) $object['status'])
             ->setHeader('Content-Type', $mimeType)
+            ->setHeader('X-Preview-Kind', $kind)
             ->setHeader('Content-Disposition', $disposition)
             ->setHeader('Content-Length', (string) strlen($object['body']))
             ->setHeader('Accept-Ranges', $object['acceptRanges'] ?: 'bytes')
-            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('Cache-Control', 'private, no-store, no-transform, max-age=0')
             ->setHeader('Pragma', 'no-cache')
             ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setHeader('X-Frame-Options', 'SAMEORIGIN')
@@ -660,7 +688,7 @@ class Files extends BaseController
         if ($object['contentRange'] !== '') {
             $response->setHeader('Content-Range', $object['contentRange']);
         }
-        if ($kind === 'text' && (int) $file['file_size'] > 2 * 1024 * 1024) {
+        if ($kind === 'text' && (int) $file['file_size'] > 768 * 1024) {
             $response->setHeader('X-Preview-Truncated', 'true');
         }
 
@@ -1060,6 +1088,7 @@ class Files extends BaseController
             return redirect()->to($returnTo)->with('error', implode(' ', $this->fileModel->errors()) ?: 'File details could not be updated.');
         }
 
+        $this->invalidateVaultMetadata();
         $this->audit('metadata_updated', $id);
 
         return redirect()->to($returnTo)->with('success', 'File details updated.');
@@ -1078,6 +1107,7 @@ class Files extends BaseController
 
         $favorite = ! (bool) $file['is_favorite'];
         $this->fileModel->update($id, ['is_favorite' => $favorite]);
+        $this->invalidateVaultMetadata();
         $this->audit($favorite ? 'favorite_added' : 'favorite_removed', $id);
 
         return redirect()->back()->with('success', $favorite ? 'Added to favorites.' : 'Removed from favorites.');
@@ -1100,6 +1130,7 @@ class Files extends BaseController
         }
 
         (new ImportantFileShareModel())->revokeForFile($id);
+        $this->invalidateVaultMetadata();
         $this->audit('file_deleted', $id, ['purge_after_days' => 30, 'share_links_revoked' => true]);
 
         return redirect()->to($returnTo)->with('success', 'File moved to the Recycle Bin for 30 days.');
@@ -1117,6 +1148,7 @@ class Files extends BaseController
         }
 
         $this->fileModel->restoreFile($id);
+        $this->invalidateVaultMetadata();
         $this->audit('file_restored', $id);
 
         return redirect()->to('/files/recycle')->with('success', 'File restored.');
@@ -1145,6 +1177,7 @@ class Files extends BaseController
 
         $this->audit('file_permanently_deleted', $id, ['title' => $file['title']]);
         $this->fileModel->delete($id, true);
+        $this->invalidateVaultMetadata();
 
         return redirect()->to('/files/recycle')->with('success', 'File permanently deleted.');
     }

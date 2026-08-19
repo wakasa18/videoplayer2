@@ -12,9 +12,7 @@ $backUrl = $backUrl ?? null;
 <meta name="referrer" content="no-referrer">
 <title><?= esc($file['title']) ?> · Shared File</title>
 <?= view('partials/theme_head') ?>
-<style>
-  .shared-wrap{max-width:1180px;margin:0 auto;padding:30px 20px 50px}.share-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}.share-heading{min-width:0}.share-heading .eyebrow{margin-bottom:6px}.share-heading h1{font-size:34px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.share-filename{font:11px 'JetBrains Mono',monospace;color:var(--text-dim);word-break:break-word}.share-actions{display:flex;gap:8px;flex:none}.share-button{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700}.share-button.primary{background:var(--cyan);color:#061019}.share-button.secondary{border:1px solid var(--hairline);color:var(--text-dim);background:var(--surface)}.share-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;min-height:70vh;border:1px solid var(--hairline);border-radius:12px;overflow:hidden;background:var(--surface);box-shadow:0 22px 70px rgba(0,0,0,.45)}.share-stage{display:flex;align-items:center;justify-content:center;min-width:0;min-height:620px;background:#080c15;overflow:auto}.share-stage iframe{width:100%;height:100%;min-height:620px;border:0;background:white}.share-stage img,.share-stage video{display:block;max-width:100%;max-height:75vh;object-fit:contain}.share-stage audio{width:min(650px,85%)}.share-fallback{text-align:center;padding:30px;color:var(--text-dim)}.share-file-icon{width:110px;height:126px;margin:0 auto 18px;border:1px solid var(--hairline);border-radius:13px;background:var(--surface-2);display:grid;place-items:center;font:700 18px 'JetBrains Mono',monospace;color:var(--cyan)}.share-fallback h2{color:var(--text);margin:0 0 8px}.share-fallback p{max-width:460px;line-height:1.6}.share-info{border-left:1px solid var(--hairline);background:#101626;padding:20px;overflow:auto}.share-info h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:0 0 18px}.share-row{margin-bottom:15px}.share-label{display:block;font:9px 'JetBrains Mono',monospace;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}.share-value{font-size:12px;line-height:1.55;word-break:break-word}.share-note{margin-top:18px;padding:11px;border:1px solid rgba(95,217,232,.25);border-radius:7px;background:rgba(95,217,232,.06);font-size:11px;color:var(--text-dim);line-height:1.55}@media(max-width:800px){.share-header{display:block}.share-actions{margin-top:14px}.share-grid{grid-template-columns:1fr}.share-info{border-left:0;border-top:1px solid var(--hairline)}.share-stage,.share-stage iframe{min-height:62vh}}@media(max-width:520px){.share-heading h1{font-size:28px}.share-actions{display:grid;grid-template-columns:1fr 1fr}.share-button{padding:10px 8px}}
-</style>
+<link rel="stylesheet" href="<?= base_url('assets/css/shared-file.v3.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head>
 <body>
@@ -26,11 +24,11 @@ $backUrl = $backUrl ?? null;
   </header>
 
   <section class="share-grid">
-    <div class="share-stage">
+    <div class="share-stage" id="sharePreviewStage" data-kind="<?= esc($previewKind, 'attr') ?>" data-preview-url="<?= esc($previewUrl, 'attr') ?>" data-download-url="<?= esc($downloadUrl, 'attr') ?>" data-title="<?= esc($file['title'], 'attr') ?>">
       <?php if ($previewKind === 'image'): ?><img src="<?= esc($previewUrl, 'attr') ?>" alt="<?= esc($file['title'], 'attr') ?>">
       <?php elseif ($previewKind === 'video'): ?><video controls preload="metadata" src="<?= esc($previewUrl, 'attr') ?>"></video>
       <?php elseif ($previewKind === 'audio'): ?><audio controls preload="metadata" src="<?= esc($previewUrl, 'attr') ?>"></audio>
-      <?php elseif ($previewKind === 'pdf' || $previewKind === 'text'): ?><iframe src="<?= esc($previewUrl, 'attr') ?>" title="Preview of <?= esc($file['title'], 'attr') ?>"></iframe>
+      <?php elseif ($previewKind === 'pdf' || $previewKind === 'text'): ?><div class="share-preview-loader" id="sharePreviewLoader"><span class="share-preview-spinner"></span><span>Loading secure preview…</span></div>
       <?php else: ?><div class="share-fallback"><div class="share-file-icon"><?= esc($typeLabel) ?></div><h2>Preview unavailable</h2><p>This file is ready to download, but your browser cannot preview this format.</p><a class="share-button primary" href="<?= esc($downloadUrl, 'attr') ?>">Download file</a></div><?php endif; ?>
     </div>
     <aside class="share-info">
@@ -45,6 +43,8 @@ $backUrl = $backUrl ?? null;
     </aside>
   </section>
 </main>
+
+<?php if ($previewKind === 'pdf' || $previewKind === 'text'): ?><script src="<?= base_url('assets/js/shared-file.v3.js') ?>" defer></script><?php endif; ?>
 <?= view('partials/theme_scripts') ?>
 </body>
 </html>
