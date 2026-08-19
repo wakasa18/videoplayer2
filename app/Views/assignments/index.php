@@ -13,15 +13,14 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
 <title>Assignments · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
 <meta name="csrf-name" content="<?= esc(csrf_token(),'attr') ?>"><meta name="csrf-hash" content="<?= esc(csrf_hash(),'attr') ?>">
-<link rel="stylesheet" href="<?= base_url('assets/css/assignments.v3.css') ?>">
-<?= view('partials/retro_theme') ?>
+<link rel="stylesheet" href="<?= base_url('assets/css/drive-assignments.v1.css') ?>">
+<?= view('partials/drive_theme') ?>
 </head><body data-base-url="<?= esc(rtrim(base_url(),'/'),'attr') ?>">
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap assignments-wrap">
   <?= view('partials/deadline_banner') ?>
   <a href="<?= base_url('others') ?>" class="nav-back">← Others</a>
   <header class="assignment-hero">
-    <div><p class="eyebrow">Mission Control · Sector 22</p><h1>Assignments</h1><p class="hero-copy">Plan, track, attach files, and finish every academic mission from one command center.</p></div>
+    <div><p class="eyebrow">Task workspace</p><h1>Assignments</h1><p class="hero-copy">Plan, track, attach files, and complete every academic task from one workspace.</p></div>
     <div class="hero-actions">
       <button class="arcade-button primary" type="button" data-open-assignment-modal>+ New assignment</button>
       <button class="arcade-button" type="button" data-open-import>Import</button>
@@ -40,7 +39,7 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
     <div><span>Completed this month</span><strong><?= (int)$analytics['completed_month'] ?></strong></div>
     <div><span>On-time rate</span><strong><?= (int)$analytics['on_time_percent'] ?>%</strong></div>
   </section>
-  <div class="analytics-ribbon"><span><strong><?= (int)$analytics['active_total'] ?></strong> active missions</span><span><strong><?= esc($analytics['top_subject']) ?></strong> busiest subject (<?= (int)$analytics['top_subject_count'] ?>)</span><span><strong><?= (int)$analytics['average_delay_hours'] ?>h</strong> average late completion</span></div>
+  <div class="analytics-ribbon"><span><strong><?= (int)$analytics['active_total'] ?></strong> active assignments</span><span><strong><?= esc($analytics['top_subject']) ?></strong> busiest subject (<?= (int)$analytics['top_subject_count'] ?>)</span><span><strong><?= (int)$analytics['average_delay_hours'] ?>h</strong> average late completion</span></div>
 
   <nav class="assignment-tabs" aria-label="Assignment views">
     <?php foreach($tabLabels as $key=>$label): ?><a class="<?= ($filters['tab']??'all')===$key?'active':'' ?>" href="<?= assignmentQuery($queryBase,['tab'=>$key]) ?>"><?= $label ?><span><?= (int)($counts[$key]??$counts['all']) ?></span></a><?php endforeach; ?>
@@ -80,7 +79,7 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
       <div class="assignment-list" id="assignmentList">
         <?php foreach($assignments as $a): ?><?= view('assignments/_card',['assignment'=>$a]) ?><?php endforeach; ?>
       </div>
-      <?php if(!$assignments): ?><div class="empty-mission"><div>NO MISSIONS FOUND</div><p>Change the filters or log a new assignment.</p><button class="arcade-button primary" data-open-assignment-modal>+ New assignment</button></div><?php endif; ?>
+      <?php if(!$assignments): ?><div class="empty-mission"><div>No assignments found</div><p>Change the filters or add a new assignment.</p><button class="arcade-button primary" data-open-assignment-modal>+ New assignment</button></div><?php endif; ?>
       <?php if($pager): ?><div class="assignment-pagination"><?= $pager->links('assignments','default_full') ?></div><?php endif; ?>
     <?php elseif($viewMode==='board'): ?>
       <div class="kanban-board" id="kanbanBoard">
@@ -99,7 +98,7 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
 <div class="assignment-fab"><button type="button" data-open-assignment-modal aria-label="Add assignment">+</button></div>
 <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
-<div class="modal assignment-modal" id="assignmentModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><p class="eyebrow">Mission Editor</p><h2 id="assignmentModalTitle">New Assignment</h2></div><button type="button" class="modal-close" data-close-modal>×</button></div>
+<div class="modal assignment-modal" id="assignmentModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><p class="eyebrow">Assignment editor</p><h2 id="assignmentModalTitle">New Assignment</h2></div><button type="button" class="modal-close" data-close-modal>×</button></div>
 <form id="assignmentForm" data-assignment-form><input type="hidden" name="<?= csrf_token() ?>" value="<?= csrf_hash() ?>"><input type="hidden" name="return_to" value="<?= esc($_SERVER['REQUEST_URI']??'/assignments','attr') ?>"><input type="hidden" name="template_id" id="formTemplateId"><div class="form-grid three">
 <label class="span-2"><span>Title</span><input name="title" id="formTitle" maxlength="255" required></label><label><span>Status</span><select name="status" id="formStatus"><?php foreach($statusLabels as $v=>$l): ?><option value="<?= $v ?>"><?= $l ?></option><?php endforeach; ?></select></label>
 <label class="span-3"><span>Description</span><textarea name="description" id="formDescription" rows="3" maxlength="5000"></textarea></label>
@@ -118,7 +117,7 @@ $prevMonth=$monthStart->modify('-1 month')->format('Y-m');$nextMonth=$monthStart
 
 <div class="modal" id="subjectModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><p class="eyebrow">Catalog</p><h2>Subject Management</h2></div><button class="modal-close" data-close-modal>×</button></div><div class="manager-layout"><div class="manager-list"><?php foreach($subjects as $s): ?><article><span class="subject-swatch" style="background:<?= esc($s['color'],'attr') ?>"></span><div><strong><?= esc($s['name']) ?></strong><small><?= esc(trim(($s['code']??'').' · '.($s['instructor']??''),' ·')) ?></small></div><button data-archive-subject="<?= (int)$s['id'] ?>">Archive</button></article><?php endforeach; ?></div><form id="subjectForm"><input type="hidden" name="id" value=""><label>Name<input name="name" maxlength="100" required></label><label>Code<input name="code" maxlength="30"></label><label>Instructor<input name="instructor" maxlength="100"></label><label>Color<input name="color" type="color" value="#42E9FF"></label><label>Schedule<input name="schedule" maxlength="255"></label><label>Semester<input name="semester" maxlength="100"></label><button class="arcade-button primary">Save subject</button></form></div></div></div>
 
-<div class="modal" id="templateModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><p class="eyebrow">Loadout</p><h2>Assignment Templates</h2></div><button class="modal-close" data-close-modal>×</button></div><div class="template-grid" id="templateGrid"><?php foreach($templates as $t): ?><article><strong><?= esc($t['name']) ?></strong><p><?= esc($t['title']) ?></p><div><button data-use-template="<?= (int)$t['id'] ?>">Use</button><button class="danger" data-delete-template="<?= (int)$t['id'] ?>">Delete</button></div></article><?php endforeach; ?></div><form id="templateForm" class="form-grid three"><label><span>Template name</span><input name="name" required maxlength="100"></label><label class="span-2"><span>Assignment title</span><input name="title" required maxlength="255"></label><label class="span-3"><span>Description</span><textarea name="description" rows="2"></textarea></label><label><span>Priority</span><select name="priority"><option>low</option><option selected>medium</option><option>high</option></select></label><label><span>Subject</span><select name="subject_id"><option value="0">None</option><?php foreach($subjects as $s): ?><option value="<?= (int)$s['id'] ?>"><?= esc($s['name']) ?></option><?php endforeach; ?></select></label><label><span>Reminder</span><select name="reminder_minutes_before"><option value="0">At due time</option><option value="60">1 hour</option><option value="1440" selected>1 day</option></select></label><div class="span-3"><button class="arcade-button primary">Save template</button></div></form></div></div>
+<div class="modal" id="templateModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><p class="eyebrow">Templates</p><h2>Assignment Templates</h2></div><button class="modal-close" data-close-modal>×</button></div><div class="template-grid" id="templateGrid"><?php foreach($templates as $t): ?><article><strong><?= esc($t['name']) ?></strong><p><?= esc($t['title']) ?></p><div><button data-use-template="<?= (int)$t['id'] ?>">Use</button><button class="danger" data-delete-template="<?= (int)$t['id'] ?>">Delete</button></div></article><?php endforeach; ?></div><form id="templateForm" class="form-grid three"><label><span>Template name</span><input name="name" required maxlength="100"></label><label class="span-2"><span>Assignment title</span><input name="title" required maxlength="255"></label><label class="span-3"><span>Description</span><textarea name="description" rows="2"></textarea></label><label><span>Priority</span><select name="priority"><option>low</option><option selected>medium</option><option>high</option></select></label><label><span>Subject</span><select name="subject_id"><option value="0">None</option><?php foreach($subjects as $s): ?><option value="<?= (int)$s['id'] ?>"><?= esc($s['name']) ?></option><?php endforeach; ?></select></label><label><span>Reminder</span><select name="reminder_minutes_before"><option value="0">At due time</option><option value="60">1 hour</option><option value="1440" selected>1 day</option></select></label><div class="span-3"><button class="arcade-button primary">Save template</button></div></form></div></div>
 
 <div class="modal" id="importModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><div><p class="eyebrow">Restore Data</p><h2>Import Assignments</h2></div><button class="modal-close" data-close-modal>×</button></div><form id="importPreviewForm"><label>JSON export<input type="file" name="import_file" accept="application/json,.json" required></label><button class="arcade-button primary">Preview import</button></form><div id="importPreview" hidden><div class="import-stats" id="importStats"></div><div class="import-errors" id="importErrors"></div><button class="arcade-button primary" id="confirmImport">Confirm import</button></div></div></div>
 

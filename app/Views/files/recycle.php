@@ -3,13 +3,9 @@
 <head>
 <title>Recycle Bin · Important Files</title>
 <?= view('partials/theme_head') ?>
-<style>
-.top-links{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0}.top-link{display:inline-flex;align-items:center;min-height:38px;padding:8px 12px;border:2px solid var(--game-border);border-radius:9px;background:#fff1ad;color:#533217;text-decoration:none;font-weight:700}.notice{font-size:13px;line-height:1.6;margin:0 0 16px}.file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}.file-item{display:flex;align-items:center;gap:12px;padding:12px}.badge-file{flex:none;width:48px;height:42px;display:grid;place-items:center;border-radius:8px;font-weight:700;font-size:11px}.file-meta{flex:1;min-width:0}.file-title{font-weight:700;font-size:15px}.file-sub{font-size:12px;margin-top:4px}.actions{display:flex;gap:7px;flex-wrap:wrap}.actions form{margin:0}.btn-small{min-height:36px;padding:7px 10px;font-size:12px}.empty{text-align:center;padding:34px;border:2px dashed var(--game-border);border-radius:10px}.secondary{background:#dff5ff!important}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}@media(max-width:650px){.file-item{align-items:flex-start;flex-wrap:wrap}.file-meta{min-width:calc(100% - 62px)}.actions{width:100%;padding-left:60px}}
-</style>
-<?= view('partials/retro_theme') ?>
+<?= view('partials/drive_theme') ?>
 </head>
 <body>
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
   <a href="<?= base_url('files') ?>" class="nav-back">&larr; Important Files</a>
   <header><p class="eyebrow">Restricted Archive · Recovery</p><h1>Recycle Bin</h1><div class="starline"></div></header>

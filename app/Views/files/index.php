@@ -21,14 +21,13 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
 <head>
 <title>Important Files · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/vault.v6.css') ?>">
-<?= view('partials/retro_theme') ?>
+<link rel="stylesheet" href="<?= base_url('assets/css/drive-vault.v1.css') ?>">
+<?= view('partials/drive_theme') ?>
 </head>
 <body>
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
   <a href="<?= base_url('/') ?>" class="nav-back">&larr; Home</a>
-  <header><p class="eyebrow">Restricted Archive · Sector 04</p><h1>Important Files</h1><div class="starline"></div></header>
+  <header><p class="eyebrow">Private cloud storage</p><h1>Important Files</h1><div class="starline"></div></header>
 
   <?php if (session()->getFlashdata('error')): ?><div class="flash error" role="alert"><?= esc(session()->getFlashdata('error')) ?></div><?php endif; ?>
   <?php if (session()->getFlashdata('success')): ?><div class="flash success" role="status"><?= esc(session()->getFlashdata('success')) ?></div><?php endif; ?>

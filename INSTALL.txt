@@ -1,0 +1,7 @@
+Google Drive style full-system build
+
+1. Upload the full project or replace the files listed in UPDATED_FILES_MANIFEST.txt.
+2. Deploy to Vercel.
+3. Hard-refresh the browser once using Ctrl + F5.
+
+No Supabase SQL or environment-variable changes are required for this UI migration.

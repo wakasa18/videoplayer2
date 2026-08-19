@@ -3,25 +3,23 @@
 <head>
 <title>Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<style>.home-header{margin-bottom:8px}.home-sub{max-width:600px;margin:0 0 8px;font-size:15px;line-height:1.6}</style>
-<?= view('partials/retro_theme') ?>
+<?= view('partials/drive_theme') ?>
 </head>
 <body>
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap home-shell">
 
   <?= view('partials/deadline_banner') ?>
 
   <section class="home-hero">
     <header class="home-header">
-      <p class="eyebrow">Adventure Hub · Player 01</p>
+      <p class="eyebrow">Private cloud workspace</p>
       <h1>Damon's Archive</h1>
       <div class="starline"></div>
     </header>
-    <p class="home-sub">Choose a zone to manage videos, assignments, notes, and important files from your private game hub.</p>
+    <p class="home-sub">Manage videos, assignments, notes, and important files from one private workspace.</p>
     <div class="home-status">
-      <span class="home-status-chip"><i></i> World online</span>
-      <span class="home-status-chip">Player verified</span>
+      <span class="home-status-chip"><i></i> Workspace online</span>
+      <span class="home-status-chip">Account verified</span>
       <span class="home-status-chip">Vault protected</span>
     </div>
   </section>

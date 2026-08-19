@@ -3,10 +3,9 @@
 <head>
 <title>Others · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<?= view('partials/retro_theme') ?>
+<?= view('partials/drive_theme') ?>
 </head>
 <body>
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
   <?= view('partials/deadline_banner') ?>
@@ -14,7 +13,7 @@
   <a href="<?= base_url('/') ?>" class="nav-back">&larr; Home</a>
 
   <header>
-    <p class="eyebrow">Miscellany · Sector 19</p>
+    <p class="eyebrow">Workspace tools</p>
     <h1>Others</h1>
     <div class="starline"></div>
   </header>

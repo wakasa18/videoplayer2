@@ -1,15 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Video Observatory</title>
+<title>Video Library</title>
 <?= view('partials/theme_head') ?>
-<style>
-.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr);gap:22px;margin-top:26px}.player-frame{background:#111b2b;border-radius:11px;overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;border:2px solid var(--game-border)}.player-frame video{width:100%;height:100%;display:block;background:#000}.player-empty{color:#dcecf4;font-size:14px;text-align:center;padding:20px}.now-playing{margin-top:13px;font-size:13px;color:var(--game-muted)}.now-playing::before{content:'';display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--red);vertical-align:middle;animation:liveDot 1.4s ease-in-out infinite}.now-playing strong{color:#225d72}.dropzone{margin-top:6px;padding:22px 14px;text-align:center}.dropzone p{margin:0 0 8px;font-size:13px}.dropzone input[type=file]{width:100%;font-size:13px}.video-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}.video-item{display:flex;align-items:center;gap:12px;padding:11px 12px;cursor:pointer}.video-thumb{width:58px;height:36px;border-radius:7px;background:#18283d;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;border:2px solid #31556a}.video-meta{flex:1;min-width:0}.video-title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.video-sub{font-size:12px;margin-top:2px}.empty-state{text-align:center;padding:24px 8px}.progress-shimmer{background-image:linear-gradient(90deg,#42c94d,#27bfe3,#42c94d);background-size:200% 100%;animation:progressShimmer 1.2s linear infinite}@media(max-width:860px){.layout{grid-template-columns:1fr}}
-</style>
-<?= view('partials/retro_theme') ?>
+<?= view('partials/drive_theme') ?>
 </head>
 <body>
-<div class="twinkle-layer" id="twinkleLayer"></div>
 <div class="wrap">
 
   <?= view('partials/deadline_banner') ?>
@@ -17,8 +13,8 @@
   <a href="<?= base_url('/') ?>" class="nav-back">&larr; Home</a>
 
   <header>
-    <p class="eyebrow">Transmission Log · Sector 07</p>
-    <h1>Video Observatory</h1>
+    <p class="eyebrow">Media workspace</p>
+    <h1>Video Library</h1>
     <div class="starline"></div>
   </header>
 

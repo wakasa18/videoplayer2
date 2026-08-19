@@ -40,11 +40,10 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
 <meta name="referrer" content="no-referrer">
 <title><?= esc($sharedTitle) ?> · Shared Folder</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/shared-pages.v5.css') ?>">
-<?= view('partials/retro_theme') ?>
+<link rel="stylesheet" href="<?= base_url('assets/css/drive-shares.v1.css') ?>">
+<?= view('partials/drive_theme') ?>
 </head>
 <body class="sp-public-body">
-<div class="twinkle-layer" id="twinkleLayer"></div>
 
 <header class="sp-public-nav" aria-label="Shared link header">
   <div class="sp-public-brand">
