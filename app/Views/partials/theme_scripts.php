@@ -25,4 +25,4 @@
   </div>
 </nav>
 <?php endif; ?>
-<script src="<?= base_url('assets/js/game-ui.v3.js') ?>" defer></script>
+<script src="<?= base_url('assets/js/game-ui.v4.js') ?>" defer></script>
