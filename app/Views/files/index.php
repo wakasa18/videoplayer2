@@ -21,7 +21,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
 <head>
 <title>Important Files · Damon's Archive</title>
 <?= view('partials/theme_head') ?>
-<link rel="stylesheet" href="<?= base_url('assets/css/vault.v3.css') ?>">
+<link rel="stylesheet" href="<?= base_url('assets/css/vault.v4.css') ?>">
 <?= view('partials/retro_theme') ?>
 </head>
 <body>
