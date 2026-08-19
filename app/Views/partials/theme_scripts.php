@@ -6,17 +6,22 @@
 <nav class="site-topbar" aria-label="Main navigation">
   <div class="site-topbar-inner">
     <a class="site-brand" href="<?= base_url('/') ?>">
-      <span class="site-brand-mark">DA</span>
-      <span class="site-brand-copy"><span class="site-brand-title">Damon's Archive</span><span class="site-brand-sub">Adventure hub</span></span>
+      <span class="site-brand-mark" aria-hidden="true">DA</span>
+      <span class="site-brand-copy">
+        <span class="site-brand-title">Damon's Archive</span>
+        <span class="site-brand-sub">Private cloud workspace</span>
+      </span>
     </a>
+
     <div class="site-nav" aria-label="Archive sections">
       <a class="site-nav-link<?= $active(['']) ?>" href="<?= base_url('/') ?>">Home</a>
       <a class="site-nav-link<?= $active(['videos']) ?>" href="<?= base_url('videos') ?>">Videos</a>
-      <a class="site-nav-link<?= $active(['others', 'assignments', 'notes']) ?>" href="<?= base_url('others') ?>">Tasks</a>
-      <a class="site-nav-link<?= $active(['files']) ?>" href="<?= base_url('files') ?>">Vault</a>
+      <a class="site-nav-link<?= $active(['others', 'assignments', 'notes']) ?>" href="<?= base_url('others') ?>">Assignments</a>
+      <a class="site-nav-link<?= $active(['files']) ?>" href="<?= base_url('files') ?>">Important Files</a>
     </div>
+
     <div class="site-account">
-      <span class="site-user"><?= esc((string) session()->get('site_username')) ?></span>
+      <span class="site-user" title="<?= esc((string) session()->get('site_username')) ?>"><?= esc((string) session()->get('site_username')) ?></span>
       <form action="<?= base_url('logout') ?>" method="post">
         <?= csrf_field() ?>
         <button class="site-logout-button" type="submit">Sign out</button>
@@ -25,4 +30,4 @@
   </div>
 </nav>
 <?php endif; ?>
-<script src="<?= base_url('assets/js/game-ui.v5.js') ?>" defer></script>
+<script src="<?= base_url('assets/js/drive-ui.v1.js') ?>" defer></script>
