@@ -1,0 +1,6 @@
+These older assets are no longer referenced after installing UI v3 and may be deleted:
+
+public/assets/css/drive-core.v2.css
+public/assets/css/drive-pages.v1.css
+public/assets/css/drive-theme.v2.css
+public/assets/js/drive-ui.v2.js

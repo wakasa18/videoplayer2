@@ -19,7 +19,7 @@
   </header>
 
   <div class="panel soon-panel">
-    <div class="portal-icon"><?= $icon ?></div>
+    <div class="portal-icon" data-drive-icon="info"><?= $icon ?></div>
     <span class="badge soon"><span class="dot"></span>Coming soon</span>
     <h2><?= esc($heading) ?></h2>
     <p><?= esc($description) ?></p>

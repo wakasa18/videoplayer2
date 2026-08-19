@@ -23,7 +23,7 @@
     <a href="<?= base_url('notes') ?>" class="portal-card">
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
-      <div class="portal-icon">&#128221;</div>
+      <div class="portal-icon" data-drive-icon="fileText"></div>
       <h2 class="portal-title">Notes</h2>
       <p class="portal-desc">Quick write-ups, references, and things worth remembering.</p>
       <div class="portal-foot">
@@ -35,7 +35,7 @@
     <a href="<?= base_url('assignments') ?>" class="portal-card">
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
-      <div class="portal-icon">&#128203;</div>
+      <div class="portal-icon" data-drive-icon="task"></div>
       <h2 class="portal-title">Assignments</h2>
       <p class="portal-desc">Coursework and tasks, tracked from assigned to done.</p>
       <div class="portal-foot">

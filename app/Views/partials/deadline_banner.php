@@ -9,7 +9,7 @@ $__overdueCount       = \App\Models\AssignmentModel::countOverdue($__urgentAssig
 <?php if ($__urgentCount > 0): ?>
   <div class="notif-bell-wrap">
     <button type="button" class="notif-bell" id="notifBell" aria-expanded="false" aria-controls="notifPanel" onclick="toggleNotifPanel()" aria-label="<?= $__urgentCount ?> assignment<?= $__urgentCount === 1 ? '' : 's' ?> due soon or overdue">
-      <span class="notif-bell-icon">&#128276;</span>
+      <span class="notif-bell-icon" data-drive-icon="bell"></span>
       <span class="notif-bell-badge"><?= $__urgentCount > 9 ? '9+' : $__urgentCount ?></span>
     </button>
 

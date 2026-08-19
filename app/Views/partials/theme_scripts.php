@@ -15,10 +15,10 @@
 <header class="site-topbar" aria-label="Application header">
   <div class="site-topbar-inner">
     <button class="drive-menu-button" type="button" data-drive-sidebar-toggle aria-label="Open navigation" aria-expanded="false">
-      <span></span><span></span><span></span>
+      <span data-drive-icon="menu" aria-hidden="true"></span>
     </button>
     <a class="site-brand" href="<?= base_url('/') ?>">
-      <span class="site-brand-mark" aria-hidden="true">DA</span>
+      <span class="site-brand-mark" aria-hidden="true"><span data-drive-icon="cloud"></span></span>
       <span class="site-brand-copy">
         <span class="site-brand-title">Damon's Archive</span>
         <span class="site-brand-sub">Private cloud workspace</span>
@@ -30,7 +30,7 @@
       <span class="site-avatar" aria-hidden="true"><?= esc($initial) ?></span>
       <form action="<?= base_url('logout') ?>" method="post">
         <?= csrf_field() ?>
-        <button class="site-logout-button" type="submit">Sign out</button>
+        <button class="site-logout-button" type="submit"><span data-drive-icon="logout"></span><span>Sign out</span></button>
       </form>
     </div>
   </div>
@@ -38,21 +38,21 @@
 
 <aside class="drive-sidebar" aria-label="Main navigation" id="driveSidebar">
   <a class="drive-new-button" href="<?= base_url('files') ?>#uploadPanel">
-    <span class="drive-new-plus" aria-hidden="true">+</span>
+    <span class="drive-new-plus" data-drive-icon="plus" aria-hidden="true"></span>
     <span>New</span>
   </a>
   <nav class="drive-sidebar-nav">
-    <a class="drive-sidebar-link<?= $active(['']) ?>" href="<?= base_url('/') ?>"><span class="drive-nav-icon">⌂</span><span>Home</span></a>
-    <a class="drive-sidebar-link<?= $active(['files']) ?>" href="<?= base_url('files') ?>"><span class="drive-nav-icon">▱</span><span>Important Files</span></a>
-    <a class="drive-sidebar-link<?= $active(['assignments', 'others', 'notes']) ?>" href="<?= base_url('assignments') ?>"><span class="drive-nav-icon">✓</span><span>Assignments</span></a>
-    <a class="drive-sidebar-link<?= $active(['videos']) ?>" href="<?= base_url('videos') ?>"><span class="drive-nav-icon">▶</span><span>Videos</span></a>
-    <a class="drive-sidebar-link<?= $active(['pictures']) ?>" href="<?= base_url('pictures') ?>"><span class="drive-nav-icon">▧</span><span>Pictures</span></a>
+    <a class="drive-sidebar-link<?= $active(['']) ?>" href="<?= base_url('/') ?>"><span class="drive-nav-icon" data-drive-icon="home"></span><span>Home</span></a>
+    <a class="drive-sidebar-link<?= $active(['files']) ?>" href="<?= base_url('files') ?>"><span class="drive-nav-icon" data-drive-icon="folder"></span><span>Important Files</span></a>
+    <a class="drive-sidebar-link<?= $active(['assignments', 'others', 'notes']) ?>" href="<?= base_url('assignments') ?>"><span class="drive-nav-icon" data-drive-icon="task"></span><span>Assignments</span></a>
+    <a class="drive-sidebar-link<?= $active(['videos']) ?>" href="<?= base_url('videos') ?>"><span class="drive-nav-icon" data-drive-icon="play"></span><span>Videos</span></a>
+    <a class="drive-sidebar-link<?= $active(['pictures']) ?>" href="<?= base_url('pictures') ?>"><span class="drive-nav-icon" data-drive-icon="image"></span><span>Pictures</span></a>
   </nav>
   <div class="drive-sidebar-divider"></div>
   <nav class="drive-sidebar-nav">
-    <a class="drive-sidebar-link" href="<?= base_url('files?favorite=1') ?>"><span class="drive-nav-icon">★</span><span>Starred</span></a>
-    <a class="drive-sidebar-link" href="<?= base_url('files/recycle') ?>"><span class="drive-nav-icon">♲</span><span>Recycle Bin</span></a>
-    <a class="drive-sidebar-link" href="<?= base_url('files/activity') ?>"><span class="drive-nav-icon">◷</span><span>Activity</span></a>
+    <a class="drive-sidebar-link" href="<?= base_url('files?favorite=1') ?>"><span class="drive-nav-icon" data-drive-icon="star"></span><span>Starred</span></a>
+    <a class="drive-sidebar-link" href="<?= base_url('files/recycle') ?>"><span class="drive-nav-icon" data-drive-icon="trash"></span><span>Recycle Bin</span></a>
+    <a class="drive-sidebar-link" href="<?= base_url('files/activity') ?>"><span class="drive-nav-icon" data-drive-icon="activity"></span><span>Activity</span></a>
   </nav>
   <div class="drive-storage-card">
     <strong>Private storage</strong>
@@ -61,7 +61,7 @@
   </div>
   <form class="drive-sidebar-logout" action="<?= base_url('logout') ?>" method="post">
     <?= csrf_field() ?>
-    <button type="submit"><span class="drive-nav-icon">↪</span><span>Sign out</span></button>
+    <button type="submit"><span class="drive-nav-icon" data-drive-icon="logout"></span><span>Sign out</span></button>
   </form>
 </aside>
 <div class="drive-sidebar-overlay" data-drive-sidebar-close></div>

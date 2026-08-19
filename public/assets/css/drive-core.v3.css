@@ -184,3 +184,134 @@ html.site-authenticated-root .wrap{width:auto;max-width:1480px;margin-left:auto;
 }
 @media(prefers-reduced-motion:reduce){.drive-motion-item{opacity:1!important;transform:none!important}.drive-motion-item.drive-motion-visible{animation:none!important}.drive-sidebar,.drive-sidebar-overlay{transition:none!important}}
 .drive-sidebar-logout{margin:14px 4px 0}.drive-sidebar-logout button{display:flex;align-items:center;gap:14px;width:100%;min-height:44px;padding:10px 14px;border:0;border-radius:0 24px 24px 0;background:transparent;color:var(--danger);box-shadow:none;text-align:left}.drive-sidebar-logout button:hover{background:#fce8e6;border:0;color:#a50e0e}
+
+/* UI refinement v3: spacing, motion, accessibility and icon system */
+:root{
+  --drive-blue:#0b57d0;
+  --drive-blue-hover:#0842a0;
+  --drive-blue-soft:#c2e7ff;
+  --drive-blue-softer:#edf4ff;
+  --drive-green:#0f9d58;
+  --drive-yellow:#f9ab00;
+  --drive-red:#d93025;
+  --drive-sidebar-width:264px;
+  --drive-ease:cubic-bezier(.2,.8,.2,1);
+  --drive-ease-spring:cubic-bezier(.16,1,.3,1);
+  --shadow-card:0 1px 2px rgba(60,64,67,.08),0 2px 8px rgba(60,64,67,.06);
+  --shadow-card-hover:0 4px 10px rgba(60,64,67,.12),0 8px 22px rgba(60,64,67,.08);
+}
+html{scroll-padding-top:calc(var(--hud-bottom) + 18px)}
+body{
+  background:
+    radial-gradient(circle at 94% -12%,rgba(66,133,244,.08),transparent 34rem),
+    radial-gradient(circle at -8% 92%,rgba(52,168,83,.045),transparent 30rem),
+    linear-gradient(180deg,#f8fafd 0%,#f1f3f4 100%);
+}
+::selection{background:#c2e7ff;color:#001d35}
+:focus-visible{outline:3px solid rgba(11,87,208,.28);outline-offset:2px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c6c9ce;border:3px solid transparent;border-radius:999px;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#aeb3b8;border:3px solid transparent;background-clip:padding-box}
+
+.drive-icon{display:inline-block;width:1.25em;height:1.25em;flex:none;vertical-align:-.2em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.drive-icon.fill-current{fill:currentColor;stroke:none}
+.drive-action-icon{display:inline-grid;place-items:center;width:20px;height:20px;flex:none;margin-right:7px;color:currentColor}
+.drive-action-icon .drive-icon{width:18px;height:18px}
+.drive-nav-icon{display:grid;place-items:center;width:24px;height:24px;flex:none;color:currentColor}
+.drive-nav-icon .drive-icon{width:21px;height:21px}
+.drive-sidebar-link span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.site-topbar{background:rgba(255,255,255,.94);box-shadow:0 1px 0 rgba(60,64,67,.08);transition:box-shadow .2s var(--drive-ease),background .2s var(--drive-ease)}
+body.drive-scrolled .site-topbar{background:rgba(255,255,255,.98);box-shadow:0 3px 12px rgba(60,64,67,.13)}
+.site-topbar-inner{min-height:72px;padding:12px 20px}
+.site-brand-mark{position:relative;overflow:hidden;background:linear-gradient(145deg,#0b57d0 0%,#4285f4 72%,#8ab4f8 100%);box-shadow:0 4px 12px rgba(11,87,208,.22);transition:transform .25s var(--drive-ease-spring),box-shadow .25s var(--drive-ease)}
+.site-brand:hover .site-brand-mark{transform:rotate(-5deg) scale(1.05);box-shadow:0 8px 18px rgba(11,87,208,.28)}
+.site-brand-mark .drive-icon{width:23px;height:23px}
+.site-section-title{position:relative;margin-left:8px;padding-left:18px;color:#3c4043;font-size:17px;font-weight:600;white-space:nowrap}
+.site-section-title::before{content:'';position:absolute;left:0;top:2px;bottom:2px;width:1px;background:#dadce0}
+.site-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,#e8f0fe,#c2e7ff);color:#0b57d0;font-size:14px;font-weight:800;border:2px solid #fff;box-shadow:0 0 0 1px #d2e3fc,0 2px 5px rgba(60,64,67,.13);transition:transform .18s var(--drive-ease)}
+.site-avatar:hover{transform:scale(1.06)}
+.site-logout-button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.drive-menu-button{position:relative;overflow:hidden}
+.drive-menu-button:hover{background:#f1f3f4}
+.drive-menu-button .drive-icon{width:22px;height:22px;color:#5f6368}
+
+.drive-sidebar{padding:18px 14px 22px;background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);box-shadow:inset -1px 0 0 #eef0f2}
+.drive-new-button{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;width:max-content;min-width:112px;min-height:52px;margin:2px 4px 18px;padding:12px 20px;border:0;border-radius:16px;background:#fff;color:#3c4043;text-decoration:none;font-weight:600;box-shadow:0 1px 2px rgba(60,64,67,.16),0 2px 6px 2px rgba(60,64,67,.10);transition:box-shadow .18s var(--drive-ease),transform .18s var(--drive-ease),background .18s var(--drive-ease)}
+.drive-new-button:hover{background:#f8fbff;box-shadow:0 2px 4px rgba(60,64,67,.17),0 5px 12px rgba(60,64,67,.13);transform:translateY(-1px)}
+.drive-new-plus{display:grid;place-items:center;width:26px;height:26px;color:#0b57d0}
+.drive-new-plus .drive-icon{width:25px;height:25px;stroke-width:2.25}
+.drive-sidebar-nav{gap:4px}
+.drive-sidebar-link{position:relative;overflow:hidden;min-height:46px;padding:11px 15px;border-radius:0 24px 24px 0;transition:background .16s var(--drive-ease),color .16s var(--drive-ease),transform .16s var(--drive-ease)}
+.drive-sidebar-link:hover{background:#f1f3f4;transform:translateX(2px)}
+.drive-sidebar-link.active{background:#c2e7ff;color:#001d35;font-weight:700}
+.drive-sidebar-link.active::before{content:'';position:absolute;left:0;top:11px;bottom:11px;width:4px;border-radius:0 6px 6px 0;background:#0b57d0}
+.drive-sidebar-divider{margin:16px 8px}
+.drive-storage-card{position:relative;overflow:hidden;margin-top:auto;padding:16px;border:1px solid #d2e3fc;border-radius:18px;background:linear-gradient(145deg,#f8fbff,#eef4ff);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.drive-storage-card::after{content:'';position:absolute;right:-22px;top:-25px;width:82px;height:82px;border-radius:50%;background:rgba(66,133,244,.08)}
+.drive-storage-card strong{display:block;position:relative;color:#202124;font-size:13px;z-index:1}
+.drive-storage-card span{display:block;position:relative;margin-top:4px;color:#5f6368;font-size:12px;z-index:1}
+.drive-storage-card a{display:inline-flex;position:relative;margin-top:12px;color:#0b57d0;font-size:12px;font-weight:700;text-decoration:none;z-index:1}
+.drive-sidebar-logout button{border-radius:0 24px 24px 0;transition:background .16s var(--drive-ease),transform .16s var(--drive-ease)}
+.drive-sidebar-logout button:hover{transform:translateX(2px)}
+
+.panel,.home-hero,.portal-card,.summary-card,.assignment-hero,.workspace-panel,.mission-stats>a,.mission-stats>div,.folder-card,.file-item,.assignment-card,.kanban-column,.sp-hero,.sp-content-panel,.sp-folder-card,.sp-file-row,.sp-stat,.login-card,.login-intro,.gate-panel,.unavailable-card{transition:border-color .2s var(--drive-ease),box-shadow .2s var(--drive-ease),transform .2s var(--drive-ease),background .2s var(--drive-ease)}
+.portal-card:hover,.folder-card:hover,.file-item:hover,.assignment-card:hover,.sp-folder-card:hover,.sp-file-row:hover,.video-item:hover{transform:translateY(-2px)!important;box-shadow:var(--shadow-card-hover)!important;border-color:#c7d9f5!important}
+.portal-card:active,.folder-card:active,.file-item:active,.sp-folder-card:active,.sp-file-row:active{transform:translateY(0)!important}
+.portal-icon,.folder-icon,.file-type-badge,.sp-folder-glyph,.sp-file-badge,.sp-single-file-badge,.badge-file,.video-thumb,.gate-icon,.unavailable-icon,.sp-stat-icon{transition:transform .22s var(--drive-ease-spring),background .2s var(--drive-ease),color .2s var(--drive-ease)}
+.portal-card:hover .portal-icon,.folder-card:hover .folder-icon,.file-item:hover .file-type-badge,.sp-folder-card:hover .sp-folder-glyph,.sp-file-row:hover .sp-file-badge{transform:scale(1.07) rotate(-2deg)}
+
+button,.btn-primary,.btn-secondary,.danger-button,.toolbar-link,.tool-button,.arcade-button,.filter-submit,.clear-filters,.sp-btn,.menu-action,.empty-action,.folder-main-action,.picker-button,.view-button,.quick-upload,.site-logout-button,.top-link,.drive-new-button{position:relative;isolation:isolate;overflow:hidden}
+button:not(:disabled):active,.btn-primary:active,.btn-secondary:active,.sp-btn:active,.toolbar-link:active{transform:scale(.98)}
+.drive-ripple{position:absolute;z-index:-1;border-radius:50%;pointer-events:none;background:currentColor;opacity:.12;transform:translate(-50%,-50%) scale(0);animation:driveRipple .58s ease-out forwards}
+
+.file-type-badge,.sp-file-badge,.sp-single-file-badge,.badge-file{position:relative;display:grid;grid-template-rows:1fr auto;place-items:center;gap:1px;padding:6px;background:#eef3fd;color:#1967d2}
+.drive-file-icon-badge .drive-icon{width:25px;height:25px}
+.drive-badge-label{max-width:100%;font-size:8px;font-weight:800;line-height:1;letter-spacing:.04em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drive-type-pdf{background:#fce8e6!important;color:#c5221f!important}
+.drive-type-image{background:#f3e8fd!important;color:#8430a8!important}
+.drive-type-video{background:#e8f0fe!important;color:#174ea6!important}
+.drive-type-audio{background:#e6f4ea!important;color:#137333!important}
+.drive-type-archive{background:#fef7e0!important;color:#b06000!important}
+.drive-type-sheet{background:#e6f4ea!important;color:#0d652d!important}
+.drive-type-code{background:#e8eaed!important;color:#3c4043!important}
+.drive-type-doc{background:#e8f0fe!important;color:#1967d2!important}
+.drive-type-generic{background:#f1f3f4!important;color:#5f6368!important}
+
+.drive-motion-item{will-change:transform,opacity;opacity:0;transform:translateY(18px) scale(.985)}
+.drive-motion-item.drive-motion-visible{animation:driveSpringIn .58s var(--drive-ease-spring) var(--drive-delay,0ms) both}
+.drive-motion-icon{animation:driveIconPop .42s var(--drive-ease-spring) both}
+.drive-sidebar-open .drive-sidebar-link{animation:driveSideItem .35s var(--drive-ease-spring) both;animation-delay:calc(var(--drive-nav-index,0) * 34ms)}
+.drive-menu-pop{animation:driveMenuPop .18s var(--drive-ease-spring) both;transform-origin:top right}
+.drive-toast-enter{animation:driveToastIn .35s var(--drive-ease-spring) both}
+.drive-scrolled .drive-sidebar{box-shadow:inset -1px 0 0 #eef0f2,2px 0 8px rgba(60,64,67,.04)}
+
+.progress-shimmer,.selected-file-progress span,.sp-progress span,.task-progress span{background-image:linear-gradient(90deg,#0b57d0,#8ab4f8,#0b57d0)!important;background-size:220% 100%!important;animation:driveProgress 1.6s linear infinite}
+
+@keyframes driveRipple{to{transform:translate(-50%,-50%) scale(7);opacity:0}}
+@keyframes driveSpringIn{0%{opacity:0;transform:translateY(20px) scale(.98)}70%{opacity:1;transform:translateY(-2px) scale(1.003)}100%{opacity:1;transform:none}}
+@keyframes driveIconPop{0%{opacity:0;transform:scale(.72) rotate(-8deg)}100%{opacity:1;transform:none}}
+@keyframes driveSideItem{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+@keyframes driveMenuPop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes driveToastIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes driveProgress{to{background-position:-220% 0}}
+
+@media(max-width:960px){
+  .site-section-title{display:none}
+  .drive-sidebar{width:min(300px,86vw);padding-top:18px}
+  .drive-sidebar-overlay{backdrop-filter:blur(2px)}
+}
+@media(max-width:720px){
+  .site-topbar-inner{padding-inline:12px}
+  .site-account .site-logout-button{display:none}
+  .site-brand-title{font-size:15px}
+  .site-avatar{width:36px;height:36px}
+}
+@media(prefers-reduced-motion:reduce){
+  .drive-motion-item{opacity:1!important;transform:none!important;will-change:auto!important}
+  .drive-motion-item.drive-motion-visible,.drive-motion-icon,.drive-sidebar-open .drive-sidebar-link,.drive-menu-pop,.drive-toast-enter{animation:none!important}
+  .drive-ripple{display:none!important}
+  .progress-shimmer,.selected-file-progress span,.sp-progress span,.task-progress span{animation:none!important}
+  .portal-card:hover,.folder-card:hover,.file-item:hover,.assignment-card:hover,.sp-folder-card:hover,.sp-file-row:hover,.video-item:hover{transform:none!important}
+}

@@ -81,7 +81,7 @@ $clearFilterUrl = base_url('files') . ($clearParams ? '?' . http_build_query($cl
           <div class="folder-grid">
             <?php foreach ($childFolders as $folder): ?>
               <div class="folder-card-shell">
-                <a class="folder-card" href="<?= base_url('files') . '?path=' . rawurlencode($folder['path']) ?>"><span class="folder-icon">&#128193;</span><span class="folder-copy"><span class="folder-name"><?= esc($folder['name']) ?></span><span class="folder-count"><?= (int) $folder['count'] ?> item<?= (int) $folder['count'] === 1 ? '' : 's' ?></span></span></a>
+                <a class="folder-card" href="<?= base_url('files') . '?path=' . rawurlencode($folder['path']) ?>"><span class="folder-icon" data-drive-icon="folder"></span><span class="folder-copy"><span class="folder-name"><?= esc($folder['name']) ?></span><span class="folder-count"><?= (int) $folder['count'] ?> item<?= (int) $folder['count'] === 1 ? '' : 's' ?></span></span></a>
                 <div class="folder-card-actions"><button type="button" class="folder-card-action js-share-folder" title="Share <?= esc($folder['name'], 'attr') ?>" aria-label="Share <?= esc($folder['name'], 'attr') ?>" data-folder-path="<?= esc($folder['path'], 'attr') ?>" data-folder-name="<?= esc($folder['name'], 'attr') ?>">&#8599;</button><button type="button" class="folder-card-action js-download-folder" title="Download <?= esc($folder['name'], 'attr') ?>" aria-label="Download <?= esc($folder['name'], 'attr') ?>" data-folder-path="<?= esc($folder['path'], 'attr') ?>" data-folder-name="<?= esc($folder['name'], 'attr') ?>">&#8681;</button></div>
               </div>
             <?php endforeach; ?>

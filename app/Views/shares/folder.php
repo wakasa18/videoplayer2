@@ -72,17 +72,17 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
       </div>
       <div class="sp-hero-actions">
         <button type="button" class="sp-btn sp-btn-primary sp-download-main" id="downloadFolderBtn" data-path="<?= esc($relativePath, 'attr') ?>" data-name="<?= esc($currentName, 'attr') ?>">
-          <span class="sp-btn-icon" aria-hidden="true">↓</span>
+          <span class="sp-btn-icon" data-drive-icon="download" aria-hidden="true"></span>
           <span><strong>Download folder</strong><small>Save as ZIP archive</small></span>
         </button>
       </div>
     </div>
 
     <div class="sp-stat-grid" aria-label="Shared folder summary">
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">#</span><span><small>Total files</small><strong><?= number_format((int) $summary['files']) ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">MB</span><span><small>Storage size</small><strong><?= esc(ImportantFileModel::formatBytes((int) $summary['bytes'])) ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">↻</span><span><small>Last updated</small><strong><?= ! empty($summary['last_updated']) ? esc(date('M j, Y', strtotime((string) $summary['last_updated']))) : 'Not available' ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">⌁</span><span><small>Link access</small><strong><?= ! empty($share['expires_at']) ? 'Until ' . esc(date('M j, Y', strtotime((string) $share['expires_at']))) : 'No expiration' ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="folder" aria-hidden="true"></span><span><small>Total files</small><strong><?= number_format((int) $summary['files']) ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="archive" aria-hidden="true"></span><span><small>Storage size</small><strong><?= esc(ImportantFileModel::formatBytes((int) $summary['bytes'])) ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="refresh" aria-hidden="true"></span><span><small>Last updated</small><strong><?= ! empty($summary['last_updated']) ? esc(date('M j, Y', strtotime((string) $summary['last_updated']))) : 'Not available' ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="link" aria-hidden="true"></span><span><small>Link access</small><strong><?= ! empty($share['expires_at']) ? 'Until ' . esc(date('M j, Y', strtotime((string) $share['expires_at']))) : 'No expiration' ?></strong></span></div>
     </div>
   </section>
 
@@ -100,7 +100,7 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
     <?php if ($relativePath !== ''): ?><input type="hidden" name="path" value="<?= esc($relativePath, 'attr') ?>"><?php endif; ?>
     <div class="sp-toolbar-search">
       <label class="sp-search">
-        <span class="sp-search-icon" aria-hidden="true">⌕</span>
+        <span class="sp-search-icon" data-drive-icon="search" aria-hidden="true"></span>
         <span class="sr-only">Search files and folders</span>
         <input type="search" name="q" id="sharedSearch" value="<?= esc((string) ($filters['q'] ?? ''), 'attr') ?>" placeholder="Search files and folders">
       </label>
@@ -132,7 +132,7 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
   </form>
 
   <div class="sp-selection-bar" id="selectionBar" hidden>
-    <div class="sp-selection-copy"><span class="sp-selection-icon" aria-hidden="true">✓</span><span><strong id="selectionCount">0 selected</strong><small id="selectionSize">0 B</small></span></div>
+    <div class="sp-selection-copy"><span class="sp-selection-icon" data-drive-icon="check" aria-hidden="true"></span><span><strong id="selectionCount">0 selected</strong><small id="selectionSize">0 B</small></span></div>
     <div class="sp-selection-actions"><button type="button" class="sp-btn sp-btn-ghost" id="clearSelectionBtn">Clear</button><button type="button" class="sp-btn sp-btn-primary" id="downloadSelectedBtn"><span aria-hidden="true">↓</span> Download selected</button></div>
   </div>
 
@@ -167,7 +167,7 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
               echo esc(implode(' · ', array_slice($types, 0, 2)) ?: 'Mixed files');
             ?><?php if (! empty($folder['last_updated'])): ?> · <?= esc(date('M j, Y', strtotime((string) $folder['last_updated']))) ?><?php endif; ?></small>
           </span>
-          <span class="sp-folder-arrow" aria-hidden="true">→</span>
+          <span class="sp-folder-arrow" data-drive-icon="chevronRight" aria-hidden="true"></span>
         </a>
         <button type="button" class="sp-folder-download js-download-subfolder" data-path="<?= esc($folder['relativePath'], 'attr') ?>" data-name="<?= esc($folder['name'], 'attr') ?>" aria-label="Download <?= esc($folder['name'], 'attr') ?>" title="Download folder"><span aria-hidden="true">↓</span></button>
       </article>
@@ -183,7 +183,7 @@ $totalResults = (int) ($pager->getTotal('shared_files') ?? count($files));
     </div>
 
     <?php if ($files === []): ?>
-      <div class="sp-empty"><span class="sp-empty-icon" aria-hidden="true">⌕</span><strong>No files found</strong><p>Try a different search, clear the filters, or open another folder.</p><?php if ($hasFilters): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($folderUrl($relativePath), 'attr') ?>">Clear filters</a><?php endif; ?></div>
+      <div class="sp-empty"><span class="sp-empty-icon" data-drive-icon="search" aria-hidden="true"></span><strong>No files found</strong><p>Try a different search, clear the filters, or open another folder.</p><?php if ($hasFilters): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($folderUrl($relativePath), 'attr') ?>">Clear filters</a><?php endif; ?></div>
     <?php else: ?>
     <div class="sp-file-list" id="sharedFileList" data-view="list">
       <?php foreach ($files as $file):

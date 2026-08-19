@@ -52,16 +52,16 @@ $kindLabel = match ($previewKind) {
         </div>
       </div>
       <div class="sp-hero-actions sp-single-actions">
-        <?php if ($previewKind !== 'unsupported'): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($previewUrl, 'attr') ?>" target="_blank" rel="noopener"><span aria-hidden="true">↗</span> Open tab</a><?php endif; ?>
-        <a class="sp-btn sp-btn-primary" href="<?= esc($downloadUrl, 'attr') ?>"><span aria-hidden="true">↓</span> Download file</a>
+        <?php if ($previewKind !== 'unsupported'): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($previewUrl, 'attr') ?>" target="_blank" rel="noopener"><span data-drive-icon="external" aria-hidden="true"></span> Open tab</a><?php endif; ?>
+        <a class="sp-btn sp-btn-primary" href="<?= esc($downloadUrl, 'attr') ?>"><span data-drive-icon="download" aria-hidden="true"></span> Download file</a>
       </div>
     </div>
 
     <div class="sp-stat-grid sp-single-stats">
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">TYPE</span><span><small>File type</small><strong><?= esc($kindLabel) ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">MB</span><span><small>File size</small><strong><?= esc(ImportantFileModel::formatBytes((int) $file['file_size'])) ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">⌁</span><span><small>Link access</small><strong><?= ! empty($share['expires_at']) ? 'Until ' . esc(date('M j, Y', strtotime((string) $share['expires_at']))) : 'No expiration' ?></strong></span></div>
-      <div class="sp-stat"><span class="sp-stat-icon" aria-hidden="true">↓</span><span><small>Downloads</small><strong><?= ! empty($share['max_downloads']) ? (int) $share['download_count'] . ' of ' . (int) $share['max_downloads'] : 'Unlimited' ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="file" aria-hidden="true"></span><span><small>File type</small><strong><?= esc($kindLabel) ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="archive" aria-hidden="true"></span><span><small>File size</small><strong><?= esc(ImportantFileModel::formatBytes((int) $file['file_size'])) ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="link" aria-hidden="true"></span><span><small>Link access</small><strong><?= ! empty($share['expires_at']) ? 'Until ' . esc(date('M j, Y', strtotime((string) $share['expires_at']))) : 'No expiration' ?></strong></span></div>
+      <div class="sp-stat"><span class="sp-stat-icon" data-drive-icon="download" aria-hidden="true"></span><span><small>Downloads</small><strong><?= ! empty($share['max_downloads']) ? (int) $share['download_count'] . ' of ' . (int) $share['max_downloads'] : 'Unlimited' ?></strong></span></div>
     </div>
   </section>
 
@@ -87,10 +87,10 @@ $kindLabel = match ($previewKind) {
         <?php if (! empty($share['max_downloads'])): ?><div><dt>Download usage</dt><dd><?= (int) $share['download_count'] ?> of <?= (int) $share['max_downloads'] ?></dd></div><?php endif; ?>
       </dl>
       <div class="sp-side-actions">
-        <a class="sp-btn sp-btn-primary" href="<?= esc($downloadUrl, 'attr') ?>"><span aria-hidden="true">↓</span> Download</a>
-        <?php if ($previewKind !== 'unsupported'): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($previewUrl, 'attr') ?>" target="_blank" rel="noopener"><span aria-hidden="true">↗</span> Open in new tab</a><?php endif; ?>
+        <a class="sp-btn sp-btn-primary" href="<?= esc($downloadUrl, 'attr') ?>"><span data-drive-icon="download" aria-hidden="true"></span> Download</a>
+        <?php if ($previewKind !== 'unsupported'): ?><a class="sp-btn sp-btn-ghost" href="<?= esc($previewUrl, 'attr') ?>" target="_blank" rel="noopener"><span data-drive-icon="external" aria-hidden="true"></span> Open in new tab</a><?php endif; ?>
       </div>
-      <div class="sp-info-note"><span class="sp-shield" aria-hidden="true">◆</span><span><strong>Private link access</strong><small>This page is available only through the shared link. The owner can disable access at any time.</small></span></div>
+      <div class="sp-info-note"><span class="sp-shield" data-drive-icon="shield" aria-hidden="true"></span><span><strong>Private link access</strong><small>This page is available only through the shared link. The owner can disable access at any time.</small></span></div>
     </aside>
   </section>
 </main>

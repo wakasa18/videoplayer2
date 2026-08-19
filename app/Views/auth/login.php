@@ -18,7 +18,7 @@
         <div class="login-feature"><span>03</span><strong>Controlled share links</strong></div>
       </aside>
       <section class="login-card">
-      <div class="login-mark">DA</div>
+      <div class="login-mark" data-drive-icon="cloud" aria-hidden="true"></div>
       <p class="eyebrow">Secure workspace</p>
       <h1>Sign in</h1>
       <p class="login-sub">Enter your credentials to access your private workspace.</p>

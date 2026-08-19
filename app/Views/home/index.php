@@ -30,7 +30,7 @@
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
       <span class="portal-number">01</span>
-      <div class="portal-icon">&#9654;</div>
+      <div class="portal-icon" data-drive-icon="play"></div>
       <h2 class="portal-title">Videos</h2>
       <span class="portal-route">/media/video</span>
       <p class="portal-desc">Uploaded recordings and clips, ready to stream from the catalog.</p>
@@ -44,7 +44,7 @@
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
       <span class="portal-number">02</span>
-      <div class="portal-icon">&#9737;</div>
+      <div class="portal-icon" data-drive-icon="image"></div>
       <h2 class="portal-title">Pictures</h2>
       <span class="portal-route">/media/pictures</span>
       <p class="portal-desc">A photo gallery for stills and snapshots. Not built yet — on the way.</p>
@@ -58,7 +58,7 @@
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
       <span class="portal-number">03</span>
-      <div class="portal-icon">&#9776;</div>
+      <div class="portal-icon" data-drive-icon="grid"></div>
       <h2 class="portal-title">Others</h2>
       <span class="portal-route">/workspace/tasks</span>
       <p class="portal-desc">Notes, assignments, and anything else that doesn't fit elsewhere.</p>
@@ -72,7 +72,7 @@
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
       <span class="portal-number">04</span>
-      <div class="portal-icon">&#128274;</div>
+      <div class="portal-icon" data-drive-icon="folder"></div>
       <h2 class="portal-title">Important Files</h2>
       <span class="portal-route">/secure/vault</span>
       <p class="portal-desc">A password-locked vault for documents that matter — IDs, certificates, anything worth keeping close.</p>
